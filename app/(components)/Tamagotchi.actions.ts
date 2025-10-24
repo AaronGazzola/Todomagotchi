@@ -29,6 +29,23 @@ export const getTamagotchiAction = async (): Promise<
   }
 };
 
+const SPECIES_OPTIONS = [
+  "species0",
+  "species1",
+  "species2",
+  "species3",
+  "species4",
+  "species5",
+  "species6",
+  "species7",
+  "species8",
+  "species9",
+];
+
+const getRandomSpecies = (): string => {
+  return SPECIES_OPTIONS[Math.floor(Math.random() * SPECIES_OPTIONS.length)];
+};
+
 export const feedTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
@@ -54,18 +71,20 @@ export const feedTamagotchiAction = async (): Promise<
     let newAge = tamagotchi.age;
     let resetFeedCount = newFeedCount;
     let newHunger = Math.min(7, tamagotchi.hunger + 1);
+    let newSpecies = tamagotchi.species;
 
     if (tamagotchi.age === 0) {
       newAge = 1;
       newHunger = 7;
-    } else if (newFeedCount >= 50) {
+    } else if (newFeedCount >= 25) {
       newAge = 0;
       resetFeedCount = 0;
-    } else if (newFeedCount >= 30 && tamagotchi.age < 3) {
+      newSpecies = getRandomSpecies();
+    } else if (newFeedCount >= 15 && tamagotchi.age < 3) {
       newAge = 3;
-    } else if (newFeedCount >= 20 && tamagotchi.age < 2) {
+    } else if (newFeedCount >= 10 && tamagotchi.age < 2) {
       newAge = 2;
-    } else if (newFeedCount >= 10 && tamagotchi.age < 1) {
+    } else if (newFeedCount >= 5 && tamagotchi.age < 1) {
       newAge = 1;
     }
 
@@ -75,6 +94,7 @@ export const feedTamagotchiAction = async (): Promise<
         hunger: newHunger,
         feedCount: resetFeedCount,
         age: newAge,
+        species: newSpecies,
         lastFedAt: new Date(),
       },
     });
