@@ -17,7 +17,7 @@ export enum TestId {
   SIGN_UP_NAME = "sign-up-name",
   SIGN_UP_EMAIL = "sign-up-email",
   SIGN_UP_PASSWORD = "sign-up-password",
-  SIGN_UP_CONFIRM_PASSWORD = "sign-up-confirm-password",
+  SIGN_UP_PASSWORD_TOGGLE = "sign-up-password-toggle",
   SIGN_UP_SUBMIT = "sign-up-submit",
   SIGN_UP_LINK = "sign-up-link",
   TAMAGOTCHI_CONTAINER = "tamagotchi-container",
@@ -40,4 +40,7 @@ export enum TestId {
   TODO_DELETE_BUTTON = "todo-delete-button",
   TODO_TEXT = "todo-text",
   TODO_EMPTY_STATE = "todo-empty-state",
+  TOAST_SUCCESS = "toast-success",
+  TOAST_ERROR = "toast-error",
+  TOAST_COPY_BUTTON = "toast-copy-button",
 }

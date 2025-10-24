@@ -83,6 +83,10 @@ export function Tamagotchi() {
     }
   };
 
+  if (!tamagotchi) {
+    return null;
+  }
+
   return (
     <div
       className="relative mx-auto w-full max-w-[400px]"

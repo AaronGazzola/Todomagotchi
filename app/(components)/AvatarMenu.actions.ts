@@ -44,6 +44,30 @@ export const createOrganizationAction = async (
       headers: await headers(),
     });
 
+    if (!result) {
+      throw new Error("Failed to create organization");
+    }
+
+    const organizationId =
+      typeof result === "object" && "id" in result
+        ? (result as { id: string }).id
+        : null;
+
+    if (!organizationId) {
+      throw new Error("Organization created but no ID returned");
+    }
+
+    const { db } = await getAuthenticatedClient();
+
+    const randomSpecies = `species${Math.floor(Math.random() * 10)}`;
+
+    await db.tamagotchi.create({
+      data: {
+        organizationId,
+        species: randomSpecies,
+      },
+    });
+
     return getActionResponse({ data: result });
   } catch (error) {
     return getActionResponse({ error });

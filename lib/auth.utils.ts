@@ -1,6 +1,6 @@
 import { User } from "better-auth";
 import jwt from "jsonwebtoken";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { auth, Session } from "./auth";
 import { createRLSClient } from "./prisma-rls";
 
@@ -30,6 +30,18 @@ export async function getAuthenticatedClient(user?: User): Promise<{
 
   return { db, session };
 }
+
+export const hasAuthCookie = async (): Promise<boolean> => {
+  const cookieStore = await cookies();
+  const authCookies = cookieStore.getAll();
+
+  const hasBetterAuthCookie = authCookies.some(
+    (cookie) =>
+      cookie.name.includes("better-auth") || cookie.name.includes("session")
+  );
+
+  return hasBetterAuthCookie;
+};
 
 export function generateSupabaseJWT(userId: string, userRole: string): string {
   const jwtSecret = process.env.SUPABASE_JWT_SECRET;

@@ -1,7 +1,7 @@
 "use client";
 
+import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import {
   getTodosAction,
   createTodoAction,
@@ -32,10 +32,10 @@ export const useCreateTodo = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
-      toast.success("Todo created");
+      showSuccessToast("Todo created");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create todo");
+      showErrorToast(error.message || "Failed to create todo", "Create Failed");
     },
   });
 };
@@ -53,7 +53,7 @@ export const useToggleTodo = () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to toggle todo");
+      showErrorToast(error.message || "Failed to toggle todo", "Toggle Failed");
     },
   });
 };
@@ -68,10 +68,10 @@ export const useDeleteTodo = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
-      toast.success("Todo deleted");
+      showSuccessToast("Todo deleted");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to delete todo");
+      showErrorToast(error.message || "Failed to delete todo", "Delete Failed");
     },
   });
 };

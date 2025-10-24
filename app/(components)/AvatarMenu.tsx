@@ -15,11 +15,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { signOut, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
 import { TestId } from "@/test.types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HexColorPicker } from "react-colorful";
+import { useSignOut } from "../layout.hooks";
 import {
   useCreateOrganization,
   useGetOrganizationColor,
@@ -32,7 +33,7 @@ export function AvatarMenu() {
   const router = useRouter();
   const { data: session } = useSession();
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
+  const [manuallyClosedDialog, setManuallyClosedDialog] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
 
   const { data: organizations } = useGetUserOrganizations();
@@ -40,20 +41,20 @@ export function AvatarMenu() {
   const { mutate: updateColor } = useUpdateTamagotchiColor();
   const { mutate: createOrganization, isPending: isCreatingOrg } =
     useCreateOrganization();
+  const { mutate: signOutMutation } = useSignOut();
 
   const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
   const { data: currentColor } = useGetOrganizationColor(activeOrganizationId);
 
   const [tempColor, setTempColor] = useState(currentColor || "#1f2937");
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push("/sign-in");
+  const handleSignOut = () => {
+    signOutMutation();
   };
 
   const handleOrganizationChange = (value: string) => {
     if (value === "__add_new__") {
-      setShowCreateOrgDialog(true);
+      setManuallyClosedDialog(false);
     } else {
       setActiveOrganization(value);
     }
@@ -68,7 +69,7 @@ export function AvatarMenu() {
       {
         onSuccess: () => {
           setNewOrgName("");
-          setShowCreateOrgDialog(false);
+          setManuallyClosedDialog(false);
         },
       }
     );
@@ -82,6 +83,9 @@ export function AvatarMenu() {
     updateColor(tempColor);
     setShowColorPicker(false);
   };
+
+  const hasNoOrganizations = organizations && organizations.length === 0;
+  const showCreateOrgDialog = hasNoOrganizations && !manuallyClosedDialog;
 
   if (!session?.user) {
     return (
@@ -208,7 +212,14 @@ export function AvatarMenu() {
         </Popover>
       </div>
 
-      <Dialog open={showCreateOrgDialog} onOpenChange={setShowCreateOrgDialog}>
+      <Dialog
+        open={showCreateOrgDialog}
+        onOpenChange={(open) => {
+          if (!open && !hasNoOrganizations) {
+            setManuallyClosedDialog(true);
+          }
+        }}
+      >
         <DialogContent data-testid={TestId.CREATE_ORG_DIALOG}>
           <DialogHeader>
             <DialogTitle>Create New Organization</DialogTitle>
@@ -227,12 +238,14 @@ export function AvatarMenu() {
             />
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateOrgDialog(false)}
-            >
-              Cancel
-            </Button>
+            {!hasNoOrganizations && (
+              <Button
+                variant="outline"
+                onClick={() => setManuallyClosedDialog(true)}
+              >
+                Cancel
+              </Button>
+            )}
             <Button
               onClick={handleCreateOrganization}
               disabled={!newOrgName.trim() || isCreatingOrg}

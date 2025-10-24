@@ -6,15 +6,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
-import { signIn, useSession } from "@/lib/auth-client";
-import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
+import { useSignIn } from "./page.hooks";
 
 export default function SignInPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  const { mutate: signInUser, isPending: isLoading } = useSignIn();
 
   useEffect(() => {
     if (session?.user) {
@@ -22,27 +23,9 @@ export default function SignInPage() {
     }
   }, [session, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const result = await signIn.email({
-        email,
-        password,
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message || "Failed to sign in");
-      }
-
-      toast.success("Signed in successfully");
-      router.push("/");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign in");
-    } finally {
-      setIsLoading(false);
-    }
+    signInUser({ email, password });
   };
 
   return (

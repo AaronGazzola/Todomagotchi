@@ -7,7 +7,7 @@ import { Tamagotchi } from "@prisma/client";
 import { headers } from "next/headers";
 
 export const getTamagotchiAction = async (): Promise<
-  ActionResponse<Tamagotchi>
+  ActionResponse<Tamagotchi | null>
 > => {
   try {
     const { db } = await getAuthenticatedClient();
@@ -16,16 +16,12 @@ export const getTamagotchiAction = async (): Promise<
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
     if (!activeOrganizationId) {
-      throw new Error("No active organization");
+      return getActionResponse({ data: null });
     }
 
     const tamagotchi = await db.tamagotchi.findUnique({
       where: { organizationId: activeOrganizationId },
     });
-
-    if (!tamagotchi) {
-      throw new Error("Tamagotchi not found");
-    }
 
     return getActionResponse({ data: tamagotchi });
   } catch (error) {

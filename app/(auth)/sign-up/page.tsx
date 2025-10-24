@@ -6,8 +6,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
-import { signUp, organization, useSession } from "@/lib/auth-client";
-import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
+import { useSignUp } from "./page.hooks";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -15,8 +16,9 @@ export default function SignUpPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const { mutate: signUpUser, isPending: isLoading } = useSignUp();
 
   useEffect(() => {
     if (session?.user) {
@@ -24,52 +26,9 @@ export default function SignUpPage() {
     }
   }, [session, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
-
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const signUpResult = await signUp.email({
-        email,
-        password,
-        name,
-      });
-
-      if (signUpResult.error) {
-        throw new Error(signUpResult.error.message || "Failed to sign up");
-      }
-
-      toast.success("Account created successfully");
-
-      const slug = name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
-      const orgResult = await organization.create({
-        name: `${name}'s Tasks`,
-        slug,
-      });
-
-      if (orgResult.error) {
-        toast.error("Account created but failed to create organization");
-      } else {
-        await organization.setActive(orgResult.data.id);
-      }
-
-      router.push("/");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign up");
-    } finally {
-      setIsLoading(false);
-    }
+    signUpUser({ name, email, password });
   };
 
   return (
@@ -119,32 +78,34 @@ export default function SignUpPage() {
             <label htmlFor="password" className="text-sm font-medium">
               Password
             </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={isLoading}
-              data-testid={TestId.SIGN_UP_PASSWORD}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="text-sm font-medium">
-              Confirm Password
-            </label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              disabled={isLoading}
-              data-testid={TestId.SIGN_UP_CONFIRM_PASSWORD}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                disabled={isLoading}
+                data-testid={TestId.SIGN_UP_PASSWORD}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+                data-testid={TestId.SIGN_UP_PASSWORD_TOGGLE}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <Button

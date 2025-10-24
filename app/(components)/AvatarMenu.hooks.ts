@@ -2,7 +2,7 @@
 
 import { organization } from "@/lib/auth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { showErrorToast, showSuccessToast } from "./Toast";
 import {
   createOrganizationAction,
   getOrganizationTamagotchiColorAction,
@@ -33,10 +33,10 @@ export const useSetActiveOrganization = () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-      toast.success("Organization switched");
+      showSuccessToast("Organization switched");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to switch organization");
+      showErrorToast(error.message || "Failed to switch organization", "Switch Failed");
     },
   });
 };

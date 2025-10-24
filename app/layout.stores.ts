@@ -1,13 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-interface AppState {
-  activeOrganizationId: string | null;
-  setActiveOrganizationId: (id: string | null) => void;
-  reset: () => void;
-}
+import { AppState } from "./layout.types";
 
 const initialState = {
+  user: null,
   activeOrganizationId: null,
 };
 
@@ -15,6 +11,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       ...initialState,
+      setUser: (user) => set({ user }),
       setActiveOrganizationId: (id) => set({ activeOrganizationId: id }),
       reset: () => set(initialState),
     }),

@@ -1,0 +1,1 @@
+Review all of the relevant files in the repo, refer to @CLAUDE.md and @docs/util.md for programming patterns. Remove the @middleware.ts . Implement the redirection approach described in @docs/RouteProtection.md
