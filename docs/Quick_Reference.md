@@ -55,11 +55,7 @@ lib/
 ├── auth-client.ts         # Better Auth client exports
 ├── auth.utils.ts          # Auth helper functions
 ├── action.utils.ts        # Action response helpers
-├── log.util.ts            # Logging utilities
-└── emails/                # Email templates
-    ├── MagicLinkEmail.tsx
-    ├── InvitationMagicLinkEmail.tsx
-    └── OrganizationInvitationEmail.tsx
+└── log.util.ts            # Logging utilities
 ```
 
 ## Import Examples
@@ -131,8 +127,6 @@ DATABASE_URL                    # PostgreSQL connection string
 BETTER_AUTH_URL                 # http://localhost:3000
 BETTER_AUTH_SECRET              # Random secret for auth
 NEXT_PUBLIC_BETTER_AUTH_URL     # http://localhost:3000
-RESEND_API_KEY                  # Your Resend API key
-FROM_EMAIL                      # Email sender address
 SUPABASE_JWT_SECRET             # Random secret for JWT
 NEXT_PUBLIC_LOG_LABELS          # "all" or comma-separated labels
 ```
@@ -184,8 +178,7 @@ NEXT_PUBLIC_LOG_LABELS          # "all" or comma-separated labels
 Before deploying:
 
 - [ ] Set all environment variables in hosting platform
-- [ ] Generate secure values for secrets
-- [ ] Add real Resend API key
+- [ ] Generate secure values for secrets (BETTER_AUTH_SECRET, SUPABASE_JWT_SECRET)
 - [ ] Run `npm run db:deploy` (not `db:migrate`)
 - [ ] Do NOT run seed script
 - [ ] Verify RLS policies are working

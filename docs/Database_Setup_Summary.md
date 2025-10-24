@@ -54,6 +54,10 @@ Two schemas configured:
   - `happiness_range`: happiness between 0-100
   - `waste_count_positive`: wasteCount >= 0
 
+**Migration 5:** `20251023212853_remove_unused_auth_tables`
+- Removed MagicLink, organization, member, and invitation tables
+- Simplified auth schema to only include core tables needed for email/password auth
+
 ### 4. Utility Files Created
 
 **[lib/prisma.ts](../lib/prisma.ts)**
@@ -69,6 +73,20 @@ Two schemas configured:
 - `ActionResponse<T>` interface
 - `getActionResponse()` helper function
 - Standardized error handling for server actions
+
+**[lib/auth.ts](../lib/auth.ts)**
+- Better Auth server configuration
+- Email/password authentication enabled
+- Email verification disabled
+- Admin plugin enabled
+
+**[lib/auth-client.ts](../lib/auth-client.ts)**
+- Better Auth client exports
+- Client-side auth functions (signIn, signUp, signOut, useSession)
+
+**[lib/auth.utils.ts](../lib/auth.utils.ts)**
+- `getAuthenticatedClient()` - Returns RLS-enabled Prisma client
+- `generateSupabaseJWT()` - Generates JWT tokens for auth
 
 ### 5. Seed Script
 
@@ -98,8 +116,6 @@ DATABASE_URL                    # PostgreSQL connection (already configured)
 BETTER_AUTH_URL                 # Auth server URL
 BETTER_AUTH_SECRET              # Auth secret key
 NEXT_PUBLIC_BETTER_AUTH_URL     # Public auth URL
-RESEND_API_KEY                  # Email service API key
-FROM_EMAIL                      # Email sender address
 SUPABASE_JWT_SECRET             # JWT signing secret
 NEXT_PUBLIC_LOG_LABELS          # Logging configuration
 ```
@@ -110,10 +126,11 @@ All migrations have been successfully applied and the database is in sync with t
 
 **Status:** ✅ Ready for development
 
-**Migration count:** 4
-**Tables created:** 11 (8 auth + 2 public + 1 migration tracking)
+**Migration count:** 5
+**Tables created:** 6 (4 auth + 2 public)
 **RLS enabled:** Yes (Todo, Tamagotchi)
 **Seed data:** Available (test-user-id)
+**Auth method:** Email/password (no email verification)
 
 ## Next Steps
 
@@ -161,7 +178,6 @@ When deploying to production:
 4. Generate secure values for:
    - BETTER_AUTH_SECRET
    - SUPABASE_JWT_SECRET
-   - RESEND_API_KEY
 
 ## Notes
 

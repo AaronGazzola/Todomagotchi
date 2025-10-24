@@ -10,38 +10,34 @@ generator client {
 }
 
 model user {
-  id               String       @id @default(cuid())
-  email            String       @unique
-  name             String?
-  role             String       @default("user")
-  banned           Boolean      @default(false)
-  banReason        String?
-  banExpires       DateTime?
-  emailVerified    Boolean?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  image            String?
-  MagicLink        MagicLink[]
-  account          account[]
-  invitation       invitation[]
-  member           member[]
-  session          session[]
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  role          String    @default("user")
+  banned        Boolean   @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  emailVerified Boolean?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  image         String?
+  account       account[]
+  session       session[]
 
   @@schema("auth")
 }
 
 model session {
-  id                   String   @id @default(cuid())
-  userId               String
-  expiresAt            DateTime
-  token                String   @unique
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  ipAddress            String?
-  userAgent            String?
-  impersonatedBy       String?
-  activeOrganizationId String?
-  user                 user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  user           user     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@schema("auth")
 }
@@ -75,64 +71,6 @@ model verification {
   updatedAt  DateTime @updatedAt
 
   @@unique([identifier, value])
-  @@schema("auth")
-}
-
-model MagicLink {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  email     String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      user     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@schema("auth")
-}
-
-model organization {
-  id         String       @id @default(cuid())
-  name       String
-  slug       String       @unique
-  logo       String?
-  metadata   Json?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  invitation invitation[]
-  member     member[]
-
-  @@schema("auth")
-}
-
-model member {
-  id             String       @id @default(cuid())
-  userId         String
-  organizationId String
-  role           String       @default("member")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           user         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, organizationId])
-  @@schema("auth")
-}
-
-model invitation {
-  id             String       @id @default(cuid())
-  organizationId String
-  email          String
-  role           String       @default("member")
-  inviterId      String
-  token          String?      @unique
-  status         String       @default("pending")
-  expiresAt      DateTime
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  user           user         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-  organization   organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([email, organizationId])
   @@schema("auth")
 }
 

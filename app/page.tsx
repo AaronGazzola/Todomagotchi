@@ -5,7 +5,7 @@ import { AvatarMenu } from "@/app/(components)/AvatarMenu";
 import { Tamagotchi } from "@/app/(components)/Tamagotchi";
 import { TodoList } from "@/app/(components)/TodoList";
 
-const MAX_HUNGER = 10;
+const MAX_HUNGER = 7;
 const HUNGER_DEPLETION_INTERVAL = 5000;
 const HUNGER_INCREMENT = 1;
 
@@ -13,6 +13,8 @@ export default function Home() {
   const [hunger, setHunger] = useState(MAX_HUNGER);
 
   useEffect(() => {
+    setHunger((prev) => Math.max(0, prev - 1));
+
     const interval = setInterval(() => {
       setHunger((prev) => Math.max(0, prev - 1));
     }, HUNGER_DEPLETION_INTERVAL);
