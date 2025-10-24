@@ -14,6 +14,7 @@ export enum TestId {
   SIGN_IN_PASSWORD = "sign-in-password",
   SIGN_IN_SUBMIT = "sign-in-submit",
   SIGN_IN_LINK = "sign-in-link",
+  SIGN_UP_NAME = "sign-up-name",
   SIGN_UP_EMAIL = "sign-up-email",
   SIGN_UP_PASSWORD = "sign-up-password",
   SIGN_UP_CONFIRM_PASSWORD = "sign-up-confirm-password",

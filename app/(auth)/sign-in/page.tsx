@@ -1,20 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
+import { signIn, useSession } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (session?.user) {
+      router.push("/");
+    }
+  }, [session, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/");
+    setIsLoading(true);
+
+    try {
+      const result = await signIn.email({
+        email,
+        password,
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to sign in");
+      }
+
+      toast.success("Signed in successfully");
+      router.push("/");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to sign in");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -39,6 +67,7 @@ export default function SignInPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
               data-testid={TestId.SIGN_IN_EMAIL}
             />
           </div>
@@ -54,6 +83,7 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
               data-testid={TestId.SIGN_IN_PASSWORD}
             />
           </div>
@@ -61,9 +91,10 @@ export default function SignInPage() {
           <Button
             type="submit"
             className="w-full"
+            disabled={isLoading}
             data-testid={TestId.SIGN_IN_SUBMIT}
           >
-            Sign In
+            {isLoading ? "Signing in..." : "Sign In"}
           </Button>
 
           <div className="text-center text-sm">

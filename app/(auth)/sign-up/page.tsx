@@ -1,24 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
+import { signUp, organization, useSession } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      throw new Error("Passwords do not match");
+  useEffect(() => {
+    if (session?.user) {
+      router.push("/");
     }
-    router.push("/");
+  }, [session, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const signUpResult = await signUp.email({
+        email,
+        password,
+        name,
+      });
+
+      if (signUpResult.error) {
+        throw new Error(signUpResult.error.message || "Failed to sign up");
+      }
+
+      toast.success("Account created successfully");
+
+      const slug = name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
+      const orgResult = await organization.create({
+        name: `${name}'s Tasks`,
+        slug,
+      });
+
+      if (orgResult.error) {
+        toast.error("Account created but failed to create organization");
+      } else {
+        await organization.setActive(orgResult.data.id);
+      }
+
+      router.push("/");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to sign up");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -33,6 +84,22 @@ export default function SignUpPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
+            <label htmlFor="name" className="text-sm font-medium">
+              Name
+            </label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              disabled={isLoading}
+              data-testid={TestId.SIGN_UP_NAME}
+            />
+          </div>
+
+          <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium">
               Email
             </label>
@@ -43,6 +110,7 @@ export default function SignUpPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={isLoading}
               data-testid={TestId.SIGN_UP_EMAIL}
             />
           </div>
@@ -58,6 +126,7 @@ export default function SignUpPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
               data-testid={TestId.SIGN_UP_PASSWORD}
             />
           </div>
@@ -73,6 +142,7 @@ export default function SignUpPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={isLoading}
               data-testid={TestId.SIGN_UP_CONFIRM_PASSWORD}
             />
           </div>
@@ -80,9 +150,10 @@ export default function SignUpPage() {
           <Button
             type="submit"
             className="w-full"
+            disabled={isLoading}
             data-testid={TestId.SIGN_UP_SUBMIT}
           >
-            Sign Up
+            {isLoading ? "Creating account..." : "Sign Up"}
           </Button>
 
           <div className="text-center text-sm">

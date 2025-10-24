@@ -4,57 +4,68 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Todo } from "@/app/page.types";
 import { TestId } from "@/test.types";
 import { cn } from "@/lib/utils";
-
-const mockTodos: Todo[] = [
-  { id: "1", text: "Complete project", completed: false },
-  { id: "2", text: "Review code", completed: true },
-];
+import {
+  useGetTodos,
+  useCreateTodo,
+  useToggleTodo,
+  useDeleteTodo,
+} from "@/app/page.hooks";
 
 interface TodoListProps {
   onTodoAction?: () => void;
 }
 
 export function TodoList({ onTodoAction }: TodoListProps = {}) {
-  const [todos, setTodos] = useState<Todo[]>(mockTodos);
   const [inputValue, setInputValue] = useState("");
+
+  const { data: todos = [], isLoading } = useGetTodos();
+  const { mutate: createTodo, isPending: isCreating } = useCreateTodo();
+  const { mutate: toggleTodo } = useToggleTodo();
+  const { mutate: deleteTodo } = useDeleteTodo();
 
   const handleAddTodo = () => {
     if (inputValue.trim().length < 1) {
       throw new Error("Todo text must be at least 1 character");
     }
 
-    const newTodo: Todo = {
-      id: Date.now().toString(),
-      text: inputValue.trim(),
-      completed: false,
-    };
-
-    setTodos([...todos, newTodo]);
-    setInputValue("");
-    onTodoAction?.();
+    createTodo(inputValue.trim(), {
+      onSuccess: () => {
+        setInputValue("");
+        onTodoAction?.();
+      },
+    });
   };
 
   const handleToggleTodo = (id: string) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
-    onTodoAction?.();
+    toggleTodo(id, {
+      onSuccess: () => {
+        onTodoAction?.();
+      },
+    });
   };
 
   const handleDeleteTodo = (id: string) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+    deleteTodo(id);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && inputValue.trim().length >= 1) {
+    if (e.key === "Enter" && inputValue.trim().length >= 1 && !isCreating) {
       handleAddTodo();
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6" data-testid={TestId.TODO_LIST}>
+        <h2 className="text-2xl font-bold">Tasks</h2>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading tasks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" data-testid={TestId.TODO_LIST}>
@@ -68,15 +79,16 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
+            disabled={isCreating}
             data-testid={TestId.TODO_INPUT}
             className="flex-1"
           />
           <Button
             onClick={handleAddTodo}
             data-testid={TestId.TODO_ADD_BUTTON}
-            disabled={inputValue.trim().length < 1}
+            disabled={inputValue.trim().length < 1 || isCreating}
           >
-            Add
+            {isCreating ? "Adding..." : "Add"}
           </Button>
         </div>
       </div>
@@ -96,7 +108,7 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
             </div>
           </div>
         ) : (
-          todos.map((todo) => (
+          todos.map((todo: { id: string; text: string; completed: boolean }) => (
             <div
               key={todo.id}
               className="flex items-center gap-3 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
