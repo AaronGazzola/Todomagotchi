@@ -56,10 +56,10 @@ export const useCreateOrganization = () => {
         queryClient.invalidateQueries({ queryKey: ["todos"] });
         queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       }
-      toast.success("Organization created successfully");
+      showSuccessToast("Organization created successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create organization");
+      showErrorToast(error.message || "Failed to create organization", "Creation Failed");
     },
   });
 };
@@ -90,10 +90,10 @@ export const useUpdateTamagotchiColor = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       queryClient.invalidateQueries({ queryKey: ["organization-color"] });
-      toast.success("Tamagotchi color updated");
+      showSuccessToast("Tamagotchi color updated");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update color");
+      showErrorToast(error.message || "Failed to update color", "Update Failed");
     },
   });
 };
