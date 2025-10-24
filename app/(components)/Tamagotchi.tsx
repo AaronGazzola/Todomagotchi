@@ -2,7 +2,11 @@
 
 import { TestId } from "@/test.types";
 import { useMemo } from "react";
-import { useFeedTamagotchi, useGetTamagotchi } from "./Tamagotchi.hooks";
+import {
+  useFeedTamagotchi,
+  useGetTamagotchi,
+  useHungerTimer,
+} from "./Tamagotchi.hooks";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
@@ -51,7 +55,7 @@ function HungerBar({
   level: number;
   [key: string]: unknown;
 }) {
-  const hambones = Math.min(Math.floor(level / 14.3), 7);
+  const hambones = Math.min(Math.max(0, level), 7);
 
   return (
     <div
@@ -76,6 +80,7 @@ function HungerBar({
 export function Tamagotchi() {
   const { data: tamagotchi } = useGetTamagotchi();
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
+  useHungerTimer();
 
   const color = tamagotchi?.color || "#1f2937";
   const species = (tamagotchi?.species || "species0") as TamagotchiSpecies;
@@ -96,7 +101,6 @@ export function Tamagotchi() {
     return null;
   }
 
-  console.log(tamagotchi?.hunger);
   return (
     <div
       className="relative mx-auto w-full max-w-[400px]"

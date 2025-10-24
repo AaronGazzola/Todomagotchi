@@ -40,6 +40,19 @@ export const createTodoAction = async (
       },
     });
 
+    const tamagotchi = await db.tamagotchi.findUnique({
+      where: { organizationId: activeOrganizationId },
+    });
+
+    if (tamagotchi) {
+      await db.tamagotchi.update({
+        where: { organizationId: activeOrganizationId },
+        data: {
+          hunger: Math.min(7, tamagotchi.hunger + 1),
+        },
+      });
+    }
+
     return getActionResponse({ data: todo });
   } catch (error) {
     return getActionResponse({ error });
@@ -51,6 +64,9 @@ export const toggleTodoAction = async (
 ): Promise<ActionResponse<Todo>> => {
   try {
     const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
 
     const todo = await db.todo.findUnique({ where: { id } });
 
@@ -58,10 +74,27 @@ export const toggleTodoAction = async (
       throw new Error("Todo not found");
     }
 
+    const isBeingCompleted = !todo.completed;
+
     const updatedTodo = await db.todo.update({
       where: { id },
       data: { completed: !todo.completed },
     });
+
+    if (isBeingCompleted && activeOrganizationId) {
+      const tamagotchi = await db.tamagotchi.findUnique({
+        where: { organizationId: activeOrganizationId },
+      });
+
+      if (tamagotchi) {
+        await db.tamagotchi.update({
+          where: { organizationId: activeOrganizationId },
+          data: {
+            hunger: Math.min(7, tamagotchi.hunger + 1),
+          },
+        });
+      }
+    }
 
     return getActionResponse({ data: updatedTodo });
   } catch (error) {

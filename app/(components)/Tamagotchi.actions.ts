@@ -53,7 +53,7 @@ export const feedTamagotchiAction = async (): Promise<
     const newFeedCount = tamagotchi.feedCount + 1;
     let newAge = tamagotchi.age;
     let resetFeedCount = newFeedCount;
-    let newHunger = Math.max(0, tamagotchi.hunger - 10);
+    let newHunger = Math.min(7, tamagotchi.hunger + 1);
 
     if (tamagotchi.age === 0) {
       newAge = 1;
@@ -69,10 +69,6 @@ export const feedTamagotchiAction = async (): Promise<
       newAge = 1;
     }
 
-    console.log({
-      newHunger,
-    });
-
     const updatedTamagotchi = await db.tamagotchi.update({
       where: { organizationId: activeOrganizationId },
       data: {
@@ -80,6 +76,54 @@ export const feedTamagotchiAction = async (): Promise<
         feedCount: resetFeedCount,
         age: newAge,
         lastFedAt: new Date(),
+      },
+    });
+
+    return getActionResponse({ data: updatedTamagotchi });
+  } catch (error) {
+    return getActionResponse({ error });
+  }
+};
+
+export const updateTamagotchiHungerAction = async (): Promise<
+  ActionResponse<Tamagotchi>
+> => {
+  try {
+    const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      return getActionResponse({ data: null as unknown as Tamagotchi });
+    }
+
+    const tamagotchi = await db.tamagotchi.findUnique({
+      where: { organizationId: activeOrganizationId },
+    });
+
+    if (!tamagotchi) {
+      return getActionResponse({ data: null as unknown as Tamagotchi });
+    }
+
+    const now = new Date();
+    const lastChecked = new Date(tamagotchi.lastCheckedAt);
+    const minutesPassed = Math.floor(
+      (now.getTime() - lastChecked.getTime()) / (1000 * 60)
+    );
+
+    if (minutesPassed < 1) {
+      return getActionResponse({ data: tamagotchi });
+    }
+
+    const hungerDecrease = Math.min(minutesPassed, tamagotchi.hunger);
+    const newHunger = Math.max(0, tamagotchi.hunger - hungerDecrease);
+
+    const updatedTamagotchi = await db.tamagotchi.update({
+      where: { organizationId: activeOrganizationId },
+      data: {
+        hunger: newHunger,
+        lastCheckedAt: now,
       },
     });
 

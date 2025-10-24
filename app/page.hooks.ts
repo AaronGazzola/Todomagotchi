@@ -32,6 +32,7 @@ export const useCreateTodo = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       showSuccessToast("Todo created");
     },
     onError: (error: Error) => {
@@ -51,6 +52,7 @@ export const useToggleTodo = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to toggle todo", "Toggle Failed");

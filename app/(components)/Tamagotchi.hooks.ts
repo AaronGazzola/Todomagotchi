@@ -1,9 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   feedTamagotchiAction,
   getTamagotchiAction,
+  updateTamagotchiHungerAction,
 } from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
 
@@ -51,4 +53,33 @@ export const useFeedTamagotchi = () => {
       );
     },
   });
+};
+
+export const useUpdateTamagotchiHunger = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await updateTamagotchiHungerAction();
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+    },
+  });
+};
+
+export const useHungerTimer = () => {
+  const { mutate: updateHunger } = useUpdateTamagotchiHunger();
+
+  useEffect(() => {
+    updateHunger();
+
+    const interval = setInterval(() => {
+      updateHunger();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [updateHunger]);
 };
