@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { useSession } from "@/lib/auth-client";
 import { TestId } from "@/test.types";
+import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HexColorPicker } from "react-colorful";
@@ -25,6 +26,7 @@ import {
   useCreateOrganization,
   useGetOrganizationColor,
   useGetUserOrganizations,
+  useResetOrganizationData,
   useSetActiveOrganization,
   useUpdateTamagotchiColor,
 } from "./AvatarMenu.hooks";
@@ -41,6 +43,7 @@ export function AvatarMenu() {
   const { mutate: updateColor } = useUpdateTamagotchiColor();
   const { mutate: createOrganization, isPending: isCreatingOrg } =
     useCreateOrganization();
+  const { mutate: resetOrganizationData } = useResetOrganizationData();
   const { mutate: signOutMutation } = useSignOut();
 
   const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
@@ -82,6 +85,16 @@ export function AvatarMenu() {
   const handleColorSubmit = () => {
     updateColor(tempColor);
     setShowColorPicker(false);
+  };
+
+  const handleReset = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to reset all tasks and tamagotchi data for this organization? This cannot be undone."
+      )
+    ) {
+      resetOrganizationData();
+    }
   };
 
   const hasNoOrganizations = organizations && organizations.length === 0;
@@ -198,6 +211,16 @@ export function AvatarMenu() {
                   </div>
                 )}
               </div>
+
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                className="w-full"
+                data-testid={TestId.AVATAR_MENU_RESET_BUTTON}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Organization Data
+              </Button>
 
               <Button
                 variant="outline"

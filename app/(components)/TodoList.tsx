@@ -69,7 +69,7 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
       </div>
     );
   }
-
+  console.log(todos);
   return (
     <div
       className="space-y-6 "

@@ -53,8 +53,12 @@ export const feedTamagotchiAction = async (): Promise<
     const newFeedCount = tamagotchi.feedCount + 1;
     let newAge = tamagotchi.age;
     let resetFeedCount = newFeedCount;
+    let newHunger = Math.max(0, tamagotchi.hunger - 10);
 
-    if (newFeedCount >= 50) {
+    if (tamagotchi.age === 0) {
+      newAge = 1;
+      newHunger = 7;
+    } else if (newFeedCount >= 50) {
       newAge = 0;
       resetFeedCount = 0;
     } else if (newFeedCount >= 30 && tamagotchi.age < 3) {
@@ -65,10 +69,14 @@ export const feedTamagotchiAction = async (): Promise<
       newAge = 1;
     }
 
+    console.log({
+      newHunger,
+    });
+
     const updatedTamagotchi = await db.tamagotchi.update({
       where: { organizationId: activeOrganizationId },
       data: {
-        hunger: Math.max(0, tamagotchi.hunger - 10),
+        hunger: newHunger,
         feedCount: resetFeedCount,
         age: newAge,
         lastFedAt: new Date(),

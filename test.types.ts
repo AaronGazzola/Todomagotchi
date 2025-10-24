@@ -5,6 +5,7 @@ export enum TestId {
   AVATAR_MENU_EMAIL = "avatar-menu-email",
   AVATAR_MENU_ORG_SELECT = "avatar-menu-org-select",
   AVATAR_MENU_COLOR_SWATCH = "avatar-menu-color-swatch",
+  AVATAR_MENU_RESET_BUTTON = "avatar-menu-reset-button",
   AVATAR_MENU_SIGN_OUT = "avatar-menu-sign-out",
   CREATE_ORG_DIALOG = "create-org-dialog",
   CREATE_ORG_INPUT = "create-org-input",

@@ -7,6 +7,7 @@ import {
   createOrganizationAction,
   getOrganizationTamagotchiColorAction,
   getUserOrganizationsAction,
+  resetOrganizationDataAction,
   updateTamagotchiColorAction,
 } from "./AvatarMenu.actions";
 
@@ -94,6 +95,25 @@ export const useUpdateTamagotchiColor = () => {
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to update color", "Update Failed");
+    },
+  });
+};
+
+export const useResetOrganizationData = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await resetOrganizationDataAction();
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      showSuccessToast("Organization data reset successfully");
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to reset data", "Reset Failed");
     },
   });
 };

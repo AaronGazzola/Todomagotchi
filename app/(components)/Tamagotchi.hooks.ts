@@ -1,8 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  feedTamagotchiAction,
+  getTamagotchiAction,
+} from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
-import { feedTamagotchiAction, getTamagotchiAction } from "./Tamagotchi.actions";
 
 export const useGetTamagotchi = () => {
   return useQuery({
@@ -42,7 +45,10 @@ export const useFeedTamagotchi = () => {
       }
     },
     onError: (error: Error) => {
-      showErrorToast(error.message || "Failed to feed Tamagotchi", "Feed Failed");
+      showErrorToast(
+        error.message || "Failed to feed Tamagotchi",
+        "Feed Failed"
+      );
     },
   });
 };

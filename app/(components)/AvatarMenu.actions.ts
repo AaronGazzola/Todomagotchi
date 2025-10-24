@@ -125,3 +125,51 @@ export const updateTamagotchiColorAction = async (
     return getActionResponse({ error });
   }
 };
+
+export const resetOrganizationDataAction = async (): Promise<
+  ActionResponse<void>
+> => {
+  try {
+    const { db } = await getAuthenticatedClient();
+
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    const tamagotchi = await db.tamagotchi.findUnique({
+      where: { organizationId: activeOrganizationId },
+      select: { color: true },
+    });
+
+    const currentColor = tamagotchi?.color || "#1f2937";
+    const randomSpecies = `species${Math.floor(Math.random() * 10)}`;
+
+    await db.todo.deleteMany({});
+
+    await db.tamagotchi.update({
+      where: { organizationId: activeOrganizationId },
+      data: {
+        hunger: 7,
+        happiness: 100,
+        wasteCount: 0,
+        color: currentColor,
+        species: randomSpecies,
+        age: 0,
+        feedCount: 0,
+        lastFedAt: new Date(),
+        lastCleanedAt: new Date(),
+        lastCheckedAt: new Date(),
+      },
+    });
+
+    return getActionResponse();
+  } catch (error) {
+    return getActionResponse({ error });
+  }
+};

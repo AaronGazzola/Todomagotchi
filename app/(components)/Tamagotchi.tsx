@@ -2,8 +2,8 @@
 
 import { TestId } from "@/test.types";
 import { useMemo } from "react";
-import { SPRITE_HAMBONE, type SpriteGrid } from "./Tamagotchi.sprites";
 import { useFeedTamagotchi, useGetTamagotchi } from "./Tamagotchi.hooks";
+import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
   type TamagotchiSpecies,
@@ -54,10 +54,19 @@ function HungerBar({
   const hambones = Math.min(Math.floor(level / 14.3), 7);
 
   return (
-    <div className="flex gap-1 justify-center" {...props}>
+    <div
+      className="flex gap-1 justify-center"
+      {...props}
+    >
       {Array.from({ length: 7 }, (_, i) => (
-        <div key={i} className={i < hambones ? "opacity-100" : "opacity-20"}>
-          <SpriteRenderer grid={SPRITE_HAMBONE} color="#1f2937" />
+        <div
+          key={i}
+          className={i < hambones ? "opacity-100" : "opacity-20"}
+        >
+          <SpriteRenderer
+            grid={SPRITE_HAMBONE}
+            color="#1f2937"
+          />
         </div>
       ))}
     </div>
@@ -87,6 +96,7 @@ export function Tamagotchi() {
     return null;
   }
 
+  console.log(tamagotchi?.hunger);
   return (
     <div
       className="relative mx-auto w-full max-w-[400px]"

@@ -51,5 +51,9 @@ export const useSignOut = () => {
       router.push(configuration.paths.signIn);
       reset();
     },
+    onSettled: () => {
+      queryClient.invalidateQueries();
+      reset();
+    },
   });
 };
