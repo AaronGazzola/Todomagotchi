@@ -14,10 +14,10 @@ const mockTodos: Todo[] = [
 ];
 
 interface TodoListProps {
-  onTodoAction: () => void;
+  onTodoAction?: () => void;
 }
 
-export function TodoList({ onTodoAction }: TodoListProps) {
+export function TodoList({ onTodoAction }: TodoListProps = {}) {
   const [todos, setTodos] = useState<Todo[]>(mockTodos);
   const [inputValue, setInputValue] = useState("");
 
@@ -34,7 +34,7 @@ export function TodoList({ onTodoAction }: TodoListProps) {
 
     setTodos([...todos, newTodo]);
     setInputValue("");
-    onTodoAction();
+    onTodoAction?.();
   };
 
   const handleToggleTodo = (id: string) => {
@@ -43,7 +43,7 @@ export function TodoList({ onTodoAction }: TodoListProps) {
         todo.id === id ? { ...todo, completed: !todo.completed } : todo
       )
     );
-    onTodoAction();
+    onTodoAction?.();
   };
 
   const handleDeleteTodo = (id: string) => {

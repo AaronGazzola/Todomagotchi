@@ -20,7 +20,13 @@ export async function getAuthenticatedClient(user?: User): Promise<{
     throw new Error("Unauthorized");
   }
 
-  const db = createRLSClient(userId);
+  const activeOrganizationId = session?.session?.activeOrganizationId;
+
+  if (!activeOrganizationId) {
+    throw new Error("No active organization");
+  }
+
+  const db = createRLSClient(userId, activeOrganizationId);
 
   return { db, session };
 }

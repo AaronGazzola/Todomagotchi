@@ -1,74 +1,87 @@
 "use client";
 
 import { TestId } from "@/test.types";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { SPRITE_HAMBONE, type SpriteGrid } from "./Tamagotchi.sprites";
+import { useFeedTamagotchi, useGetTamagotchi } from "./Tamagotchi.hooks";
 import {
-  SPRITES,
-  SPRITE_HAMBONE,
-  SPRITES_HUNGER,
-  type SpriteGrid,
-} from "./Tamagotchi.sprites";
+  getSpriteForTamagotchi,
+  type TamagotchiSpecies,
+} from "./Tamagotchi.utils";
 
-const MAX_HUNGER = 7;
+function SpriteRenderer({
+  grid,
+  color,
+  ...props
+}: {
+  grid: (0 | 1)[][];
+  color: string;
+  [key: string]: unknown;
+}) {
+  const gridSize = grid.length;
 
-function PixelGrid({ sprite, color = "bg-gray-900" }: { sprite: SpriteGrid; color?: string }) {
-  const cols = sprite[0]?.length || 10;
   return (
     <div
-      className="inline-grid gap-0"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${gridSize}, 3px)`,
+        gridTemplateRows: `repeat(${gridSize}, 3px)`,
+        gap: "1px",
+      }}
+      {...props}
     >
-      {sprite.map((row, rowIndex) =>
-        row.map((pixel, colIndex) => (
-          <div
-            key={`${rowIndex}-${colIndex}`}
-            className={`w-3 h-3 ${pixel ? color : "bg-transparent"}`}
-          />
-        ))
-      )}
+      {grid.flat().map((pixel, i) => (
+        <div
+          key={i}
+          style={{
+            width: "3px",
+            height: "3px",
+            backgroundColor: pixel ? color : "transparent",
+          }}
+        />
+      ))}
     </div>
   );
 }
 
-function HungerBar({ hunger }: { hunger: number }) {
+function HungerBar({
+  level,
+  ...props
+}: {
+  level: number;
+  [key: string]: unknown;
+}) {
+  const hambones = Math.min(Math.floor(level / 14.3), 7);
+
   return (
-    <div
-      className="flex justify-center items-center py-2"
-      style={{ gap: "12px" }}
-    >
-      {Array.from({ length: MAX_HUNGER }).map((_, index) => (
-        <div
-          key={index}
-          className="transition-opacity duration-300"
-          style={{ opacity: index < hunger ? 1 : 0.2 }}
-        >
-          <PixelGrid sprite={SPRITE_HAMBONE} />
+    <div className="flex gap-1 justify-center" {...props}>
+      {Array.from({ length: 7 }, (_, i) => (
+        <div key={i} className={i < hambones ? "opacity-100" : "opacity-20"}>
+          <SpriteRenderer grid={SPRITE_HAMBONE} color="#1f2937" />
         </div>
       ))}
     </div>
   );
 }
 
-interface TamagotchiProps {
-  hunger: number;
-  onFeed: () => void;
-}
+export function Tamagotchi() {
+  const { data: tamagotchi } = useGetTamagotchi();
+  const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
 
-export function Tamagotchi({ hunger, onFeed }: TamagotchiProps) {
-  const [currentSpriteIndex, setCurrentSpriteIndex] = useState(0);
-  const [currentHungerIndex, setCurrentHungerIndex] = useState(0);
+  const color = tamagotchi?.color || "#1f2937";
+  const species = (tamagotchi?.species || "species0") as TamagotchiSpecies;
+  const age = tamagotchi?.age || 0;
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSpriteIndex((prev) => (prev + 1) % SPRITES.length);
-      setCurrentHungerIndex((prev) => (prev + 1) % SPRITES_HUNGER.length);
-    }, 3000);
+  const currentSprite = useMemo(
+    () => getSpriteForTamagotchi(species, age),
+    [species, age]
+  );
 
-    return () => clearInterval(interval);
-  }, []);
-
-  const displaySprite =
-    hunger === 0 ? SPRITES_HUNGER[currentHungerIndex] : SPRITES[currentSpriteIndex];
+  const handleFeed = () => {
+    if (!isFeeding) {
+      feedTamagotchi();
+    }
+  };
 
   return (
     <div
@@ -84,29 +97,35 @@ export function Tamagotchi({ hunger, onFeed }: TamagotchiProps) {
             style={{ minHeight: "240px" }}
             data-testid={TestId.TAMAGOTCHI_SCREEN}
           >
-            <div className="flex items-center justify-center" style={{ minHeight: "160px" }}>
-              <PixelGrid
-                sprite={displaySprite}
-                color="bg-gray-900"
+            <div
+              className="flex items-center justify-center"
+              style={{ minHeight: "160px" }}
+            >
+              <SpriteRenderer
+                grid={currentSprite}
+                color={color}
+                data-testid={TestId.TAMAGOTCHI_ANIMATION}
               />
             </div>
-            <HungerBar hunger={hunger} />
+            <HungerBar
+              level={tamagotchi?.hunger || 0}
+              data-testid={TestId.TAMAGOTCHI_HUNGER_BAR}
+            />
           </div>
         </div>
 
         <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-6 px-10">
           <button
-            onClick={onFeed}
-            className="w-10 h-10 rounded-full bg-gradient-to-b from-pink-300 to-pink-400 shadow-[0_4px_0_rgba(219,39,119,0.5),0_6px_10px_rgba(0,0,0,0.3)] border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all active:shadow-[0_1px_0_rgba(219,39,119,0.5)] active:translate-y-1"
+            onClick={handleFeed}
+            disabled={isFeeding}
+            className="w-10 h-10 rounded-full bg-gradient-to-b from-pink-300 to-pink-400 shadow-[0_4px_0_rgba(219,39,119,0.5),0_6px_10px_rgba(0,0,0,0.3)] border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all active:shadow-[0_1px_0_rgba(219,39,119,0.5)] active:translate-y-1 disabled:opacity-50"
             data-testid={TestId.TAMAGOTCHI_BUTTON_LEFT}
           />
           <button
-            onClick={onFeed}
             className="w-10 h-10 rounded-full bg-gradient-to-b from-pink-300 to-pink-400 shadow-[0_4px_0_rgba(219,39,119,0.5),0_6px_10px_rgba(0,0,0,0.3)] border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all active:shadow-[0_1px_0_rgba(219,39,119,0.5)] active:translate-y-1"
             data-testid={TestId.TAMAGOTCHI_BUTTON_CENTER}
           />
           <button
-            onClick={onFeed}
             className="w-10 h-10 rounded-full bg-gradient-to-b from-pink-300 to-pink-400 shadow-[0_4px_0_rgba(219,39,119,0.5),0_6px_10px_rgba(0,0,0,0.3)] border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all active:shadow-[0_1px_0_rgba(219,39,119,0.5)] active:translate-y-1"
             data-testid={TestId.TAMAGOTCHI_BUTTON_RIGHT}
           />
