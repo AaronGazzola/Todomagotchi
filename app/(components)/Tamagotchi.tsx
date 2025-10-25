@@ -50,9 +50,11 @@ function SpriteRenderer({
 
 function HungerBar({
   level,
+  color,
   ...props
 }: {
   level: number;
+  color: string;
   [key: string]: unknown;
 }) {
   const hambones = Math.min(Math.max(0, level), 7);
@@ -69,7 +71,7 @@ function HungerBar({
         >
           <SpriteRenderer
             grid={SPRITE_HAMBONE}
-            color="#1f2937"
+            color={color}
           />
         </div>
       ))}
@@ -106,7 +108,13 @@ export function Tamagotchi() {
       className="relative mx-auto w-full max-w-[400px]"
       data-testid={TestId.TAMAGOTCHI_CONTAINER}
     >
-      <div className="relative bg-gradient-to-br from-cyan-400 via-teal-400 to-emerald-500 rounded-[50%] aspect-[4/5] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-[6px] border-cyan-500">
+      <div
+        className="relative rounded-[50%] aspect-[4/5] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-[6px]"
+        style={{
+          background: `linear-gradient(to bottom right, ${color}, ${color}dd, ${color}bb)`,
+          borderColor: color,
+        }}
+      >
         <div className="absolute inset-0 rounded-[50%] bg-gradient-to-b from-white/20 via-transparent to-black/10 pointer-events-none" />
 
         <div className="relative w-full h-full flex flex-col items-center justify-center pb-10 gap-2">
@@ -127,6 +135,7 @@ export function Tamagotchi() {
             </div>
             <HungerBar
               level={tamagotchi?.hunger || 0}
+              color={color}
               data-testid={TestId.TAMAGOTCHI_HUNGER_BAR}
             />
           </div>
