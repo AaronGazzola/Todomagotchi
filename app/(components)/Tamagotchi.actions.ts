@@ -3,6 +3,7 @@
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
+import { createRLSClient } from "@/lib/prisma-rls";
 import { Tamagotchi } from "@prisma/client";
 import { headers } from "next/headers";
 
@@ -46,6 +47,53 @@ const getRandomSpecies = (): string => {
   return SPECIES_OPTIONS[Math.floor(Math.random() * SPECIES_OPTIONS.length)];
 };
 
+export const feedTamagotchiHelper = async (
+  db: ReturnType<typeof createRLSClient>,
+  activeOrganizationId: string
+): Promise<Tamagotchi> => {
+  const tamagotchi = await db.tamagotchi.findUnique({
+    where: { organizationId: activeOrganizationId },
+  });
+
+  if (!tamagotchi) {
+    throw new Error("Tamagotchi not found");
+  }
+
+  const newFeedCount = tamagotchi.feedCount + 1;
+  let newAge = tamagotchi.age;
+  let resetFeedCount = newFeedCount;
+  let newHunger = Math.min(7, tamagotchi.hunger + 1);
+  let newSpecies = tamagotchi.species;
+
+  if (tamagotchi.age === 0) {
+    newAge = 1;
+    newHunger = 7;
+  } else if (newFeedCount >= 25) {
+    newAge = 0;
+    resetFeedCount = 0;
+    newSpecies = getRandomSpecies();
+  } else if (newFeedCount >= 15 && tamagotchi.age < 3) {
+    newAge = 3;
+  } else if (newFeedCount >= 10 && tamagotchi.age < 2) {
+    newAge = 2;
+  } else if (newFeedCount >= 5 && tamagotchi.age < 1) {
+    newAge = 1;
+  }
+
+  const updatedTamagotchi = await db.tamagotchi.update({
+    where: { organizationId: activeOrganizationId },
+    data: {
+      hunger: newHunger,
+      feedCount: resetFeedCount,
+      age: newAge,
+      species: newSpecies,
+      lastFedAt: new Date(),
+    },
+  });
+
+  return updatedTamagotchi;
+};
+
 export const feedTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
@@ -59,45 +107,10 @@ export const feedTamagotchiAction = async (): Promise<
       throw new Error("No active organization");
     }
 
-    const tamagotchi = await db.tamagotchi.findUnique({
-      where: { organizationId: activeOrganizationId },
-    });
-
-    if (!tamagotchi) {
-      throw new Error("Tamagotchi not found");
-    }
-
-    const newFeedCount = tamagotchi.feedCount + 1;
-    let newAge = tamagotchi.age;
-    let resetFeedCount = newFeedCount;
-    let newHunger = Math.min(7, tamagotchi.hunger + 1);
-    let newSpecies = tamagotchi.species;
-
-    if (tamagotchi.age === 0) {
-      newAge = 1;
-      newHunger = 7;
-    } else if (newFeedCount >= 25) {
-      newAge = 0;
-      resetFeedCount = 0;
-      newSpecies = getRandomSpecies();
-    } else if (newFeedCount >= 15 && tamagotchi.age < 3) {
-      newAge = 3;
-    } else if (newFeedCount >= 10 && tamagotchi.age < 2) {
-      newAge = 2;
-    } else if (newFeedCount >= 5 && tamagotchi.age < 1) {
-      newAge = 1;
-    }
-
-    const updatedTamagotchi = await db.tamagotchi.update({
-      where: { organizationId: activeOrganizationId },
-      data: {
-        hunger: newHunger,
-        feedCount: resetFeedCount,
-        age: newAge,
-        species: newSpecies,
-        lastFedAt: new Date(),
-      },
-    });
+    const updatedTamagotchi = await feedTamagotchiHelper(
+      db,
+      activeOrganizationId
+    );
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
@@ -137,7 +150,9 @@ export const updateTamagotchiHungerAction = async (): Promise<
     }
 
     const hungerDecrease = Math.min(minutesPassed, tamagotchi.hunger);
-    const newHunger = Math.max(0, tamagotchi.hunger - hungerDecrease);
+    const newHunger = !tamagotchi.age
+      ? tamagotchi.hunger
+      : Math.max(0, tamagotchi.hunger - hungerDecrease);
     const newAge = newHunger === 0 ? 0 : tamagotchi.age;
     const newSpecies =
       newHunger === 0 ? getRandomSpecies() : tamagotchi.species;

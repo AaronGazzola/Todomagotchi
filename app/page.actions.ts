@@ -5,12 +5,21 @@ import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { Todo } from "@prisma/client";
 import { headers } from "next/headers";
+import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 
 export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
   try {
     const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
 
     const todos = await db.todo.findMany({
+      where: { organizationId: activeOrganizationId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -40,18 +49,7 @@ export const createTodoAction = async (
       },
     });
 
-    const tamagotchi = await db.tamagotchi.findUnique({
-      where: { organizationId: activeOrganizationId },
-    });
-
-    if (tamagotchi) {
-      await db.tamagotchi.update({
-        where: { organizationId: activeOrganizationId },
-        data: {
-          hunger: Math.min(7, tamagotchi.hunger + 1),
-        },
-      });
-    }
+    await feedTamagotchiHelper(db, activeOrganizationId);
 
     return getActionResponse({ data: todo });
   } catch (error) {
@@ -68,10 +66,18 @@ export const toggleTodoAction = async (
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
     const todo = await db.todo.findUnique({ where: { id } });
 
     if (!todo) {
       throw new Error("Todo not found");
+    }
+
+    if (todo.organizationId !== activeOrganizationId) {
+      throw new Error("Todo does not belong to active organization");
     }
 
     const isBeingCompleted = !todo.completed;
@@ -81,19 +87,8 @@ export const toggleTodoAction = async (
       data: { completed: !todo.completed },
     });
 
-    if (isBeingCompleted && activeOrganizationId) {
-      const tamagotchi = await db.tamagotchi.findUnique({
-        where: { organizationId: activeOrganizationId },
-      });
-
-      if (tamagotchi) {
-        await db.tamagotchi.update({
-          where: { organizationId: activeOrganizationId },
-          data: {
-            hunger: Math.min(7, tamagotchi.hunger + 1),
-          },
-        });
-      }
+    if (isBeingCompleted) {
+      await feedTamagotchiHelper(db, activeOrganizationId);
     }
 
     return getActionResponse({ data: updatedTodo });
@@ -107,6 +102,23 @@ export const deleteTodoAction = async (
 ): Promise<ActionResponse<void>> => {
   try {
     const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    const todo = await db.todo.findUnique({ where: { id } });
+
+    if (!todo) {
+      throw new Error("Todo not found");
+    }
+
+    if (todo.organizationId !== activeOrganizationId) {
+      throw new Error("Todo does not belong to active organization");
+    }
 
     await db.todo.delete({ where: { id } });
 
