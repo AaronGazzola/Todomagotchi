@@ -64,7 +64,7 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
       >
         <h2 className="text-2xl font-bold">Tasks</h2>
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading tasks...</p>
+          <p className="text-white">Loading tasks...</p>
         </div>
       </div>
     );
@@ -107,8 +107,8 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
           >
             <div className="text-6xl">✓</div>
             <div className="space-y-2">
-              <p className="text-lg font-medium">No tasks yet</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-lg font-medium text-white">No tasks yet</p>
+              <p className="text-sm text-white/70">
                 Add a task above to get started
               </p>
             </div>
@@ -131,8 +131,8 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
                 />
                 <span
                   className={cn(
-                    "flex-1 transition-all",
-                    todo.completed && "line-through text-muted-foreground"
+                    "flex-1 transition-all text-white",
+                    todo.completed && "line-through text-white/50"
                   )}
                   data-testid={`${TestId.TODO_TEXT}-${todo.id}`}
                 >

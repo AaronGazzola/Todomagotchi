@@ -60,6 +60,7 @@ export const useUpdateTamagotchiHunger = () => {
 
   return useMutation({
     mutationFn: async () => {
+      console.log("timer mutationa");
       const { data, error } = await updateTamagotchiHungerAction();
       if (error) throw new Error(error);
       return data;
@@ -76,9 +77,12 @@ export const useHungerTimer = () => {
   useEffect(() => {
     updateHunger();
 
+    console.log("setting interval");
+
     const interval = setInterval(() => {
+      console.log("interval");
       updateHunger();
-    }, 60000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [updateHunger]);

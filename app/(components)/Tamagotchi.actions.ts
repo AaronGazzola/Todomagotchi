@@ -129,7 +129,7 @@ export const updateTamagotchiHungerAction = async (): Promise<
     const now = new Date();
     const lastChecked = new Date(tamagotchi.lastCheckedAt);
     const minutesPassed = Math.floor(
-      (now.getTime() - lastChecked.getTime()) / (1000 * 60)
+      (now.getTime() - lastChecked.getTime()) / (1000 * 30)
     );
 
     if (minutesPassed < 1) {
@@ -138,12 +138,18 @@ export const updateTamagotchiHungerAction = async (): Promise<
 
     const hungerDecrease = Math.min(minutesPassed, tamagotchi.hunger);
     const newHunger = Math.max(0, tamagotchi.hunger - hungerDecrease);
+    const newAge = newHunger === 0 ? 0 : tamagotchi.age;
+    const newSpecies =
+      newHunger === 0 ? getRandomSpecies() : tamagotchi.species;
 
     const updatedTamagotchi = await db.tamagotchi.update({
       where: { organizationId: activeOrganizationId },
       data: {
         hunger: newHunger,
         lastCheckedAt: now,
+        age: newAge,
+        species: newSpecies,
+        feedCount: newHunger === 0 ? 0 : tamagotchi.feedCount,
       },
     });
 
