@@ -35,7 +35,7 @@ export function AvatarMenu() {
   const router = useRouter();
   const { data: session } = useSession();
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [manuallyClosedDialog, setManuallyClosedDialog] = useState(false);
+  const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
 
   const { data: organizations } = useGetUserOrganizations();
@@ -57,7 +57,7 @@ export function AvatarMenu() {
 
   const handleOrganizationChange = (value: string) => {
     if (value === "__add_new__") {
-      setManuallyClosedDialog(false);
+      setShowCreateOrgDialog(true);
     } else {
       setActiveOrganization(value);
     }
@@ -72,7 +72,7 @@ export function AvatarMenu() {
       {
         onSuccess: () => {
           setNewOrgName("");
-          setManuallyClosedDialog(false);
+          setShowCreateOrgDialog(false);
         },
       }
     );
@@ -98,7 +98,6 @@ export function AvatarMenu() {
   };
 
   const hasNoOrganizations = organizations && organizations.length === 0;
-  const showCreateOrgDialog = hasNoOrganizations && !manuallyClosedDialog;
 
   if (!session?.user) {
     return (
@@ -163,7 +162,10 @@ export function AvatarMenu() {
                   data-testid={TestId.AVATAR_MENU_ORG_SELECT}
                 >
                   {organizations?.map((org: { id: string; name: string }) => (
-                    <option key={org.id} value={org.id}>
+                    <option
+                      key={org.id}
+                      value={org.id}
+                    >
                       {org.name}
                     </option>
                   ))}
@@ -235,14 +237,7 @@ export function AvatarMenu() {
         </Popover>
       </div>
 
-      <Dialog
-        open={showCreateOrgDialog}
-        onOpenChange={(open) => {
-          if (!open && !hasNoOrganizations) {
-            setManuallyClosedDialog(true);
-          }
-        }}
-      >
+      <Dialog open={showCreateOrgDialog}>
         <DialogContent data-testid={TestId.CREATE_ORG_DIALOG}>
           <DialogHeader>
             <DialogTitle>Create New Organization</DialogTitle>
@@ -264,7 +259,7 @@ export function AvatarMenu() {
             {!hasNoOrganizations && (
               <Button
                 variant="outline"
-                onClick={() => setManuallyClosedDialog(true)}
+                onClick={() => setShowCreateOrgDialog(false)}
               >
                 Cancel
               </Button>

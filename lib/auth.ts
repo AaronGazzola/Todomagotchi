@@ -13,7 +13,32 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
-  plugins: [admin(), organization()],
+  plugins: [
+    admin(),
+    organization({
+      organizationHooks: {
+        afterCreateOrganization: async ({ organization, user }) => {
+          try {
+            const randomSpecies = `species${Math.floor(Math.random() * 10)}`;
+
+            await prisma.organization.update({
+              where: { id: organization.id },
+              data: { createdBy: user.id },
+            });
+
+            await prisma.tamagotchi.create({
+              data: {
+                organizationId: organization.id,
+                species: randomSpecies,
+              },
+            });
+          } catch (error) {
+            console.error("Error creating Tamagotchi:", error);
+          }
+        },
+      },
+    }),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

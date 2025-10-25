@@ -51,9 +51,10 @@ export const useCreateOrganization = () => {
       if (error) throw new Error(error);
       return data as { id: string } | null;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       if (data?.id) {
+        await organization.setActive({ organizationId: data.id });
         queryClient.invalidateQueries({ queryKey: ["todos"] });
         queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       }
