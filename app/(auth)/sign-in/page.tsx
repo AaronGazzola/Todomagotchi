@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
 import { useSession } from "@/lib/auth-client";
 import { useSignIn } from "./page.hooks";
+import { Info } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -43,6 +44,10 @@ export default function SignInPage() {
             <label htmlFor="email" className="text-sm font-medium">
               Email
             </label>
+            <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+              <Info className="h-4 w-4" />
+              <span>You can sign in with a fake email address!</span>
+            </div>
             <Input
               id="email"
               type="email"
