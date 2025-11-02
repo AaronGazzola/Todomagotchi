@@ -1,7 +1,7 @@
 "use client";
 
 import { TestId } from "@/test.types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   useFeedTamagotchi,
   useGetTamagotchi,
@@ -20,6 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SpriteGridViewer } from "./SpriteGridViewer";
 
 function SpriteRenderer({
   grid,
@@ -93,6 +94,8 @@ export function Tamagotchi() {
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
   const { mutate: updateAge } = useUpdateTamagotchiAge();
   useHungerTimer();
+
+  const [showSpriteGrid, setShowSpriteGrid] = useState(false);
 
   const color = tamagotchi?.color || "#1f2937";
   const species = (tamagotchi?.species || "species0") as TamagotchiSpecies;
@@ -231,8 +234,17 @@ export function Tamagotchi() {
               </div>
             </PopoverContent>
           </Popover>
+
+          <button
+            onClick={() => setShowSpriteGrid(!showSpriteGrid)}
+            className="px-4 py-2 rounded-lg bg-gradient-to-b from-blue-300 to-blue-400 shadow-md border-2 border-blue-500 hover:from-blue-400 hover:to-blue-500 transition-all text-sm font-medium text-gray-800"
+          >
+            {showSpriteGrid ? "Hide" : "Show"} All Sprites
+          </button>
         </div>
       )}
+
+      {showSpriteGrid && <SpriteGridViewer color={color} onClose={() => setShowSpriteGrid(false)} />}
     </div>
   );
 }
