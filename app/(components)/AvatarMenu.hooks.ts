@@ -4,12 +4,17 @@ import { organization } from "@/lib/auth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showErrorToast, showSuccessToast } from "./Toast";
 import {
+  acceptInvitationAction,
   createOrganizationAction,
+  declineInvitationAction,
   getOrganizationTamagotchiColorAction,
+  getPendingInvitationsForUserAction,
   getUserOrganizationsAction,
   resetOrganizationDataAction,
+  sendInvitationsAction,
   updateTamagotchiColorAction,
 } from "./AvatarMenu.actions";
+import { InvitationResult, SendInvitationsParams } from "./AvatarMenu.types";
 
 export const useGetUserOrganizations = () => {
   return useQuery({
@@ -115,6 +120,93 @@ export const useResetOrganizationData = () => {
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to reset data", "Reset Failed");
+    },
+  });
+};
+
+export const useSendInvitations = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: SendInvitationsParams) => {
+      const { data, error } = await sendInvitationsAction(params);
+      if (error) throw new Error(error);
+      return data as InvitationResult[];
+    },
+    onSuccess: (results) => {
+      queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.filter((r) => !r.success).length;
+
+      if (successCount > 0) {
+        showSuccessToast(
+          `${successCount} invitation${successCount === 1 ? "" : "s"} sent successfully`
+        );
+      }
+
+      if (failCount > 0) {
+        const failedEmails = results
+          .filter((r) => !r.success)
+          .map((r) => `${r.email}: ${r.error}`)
+          .join(", ");
+        showErrorToast(failedEmails, "Some invitations failed");
+      }
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to send invitations", "Invitation Failed");
+    },
+  });
+};
+
+export const useGetPendingInvitations = () => {
+  return useQuery({
+    queryKey: ["pending-invitations"],
+    queryFn: async () => {
+      const { data, error } = await getPendingInvitationsForUserAction();
+      if (error) throw new Error(error);
+      return data || [];
+    },
+    refetchInterval: 1000 * 60 * 2,
+    staleTime: 1000 * 60,
+  });
+};
+
+export const useAcceptInvitation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { error } = await acceptInvitationAction(invitationId);
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      showSuccessToast("Invitation accepted successfully");
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to accept invitation", "Accept Failed");
+    },
+  });
+};
+
+export const useDeclineInvitation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (invitationId: string) => {
+      const { error } = await declineInvitationAction(invitationId);
+      if (error) throw new Error(error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+      showSuccessToast("Invitation declined");
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to decline invitation", "Decline Failed");
     },
   });
 };

@@ -173,3 +173,51 @@ export const updateTamagotchiHungerAction = async (): Promise<
     return getActionResponse({ error });
   }
 };
+
+export const updateTamagotchiSpeciesAction = async (
+  species: string
+): Promise<ActionResponse<Tamagotchi>> => {
+  try {
+    const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    const updatedTamagotchi = await db.tamagotchi.update({
+      where: { organizationId: activeOrganizationId },
+      data: { species },
+    });
+
+    return getActionResponse({ data: updatedTamagotchi });
+  } catch (error) {
+    return getActionResponse({ error });
+  }
+};
+
+export const updateTamagotchiAgeAction = async (
+  age: number
+): Promise<ActionResponse<Tamagotchi>> => {
+  try {
+    const { db } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    const activeOrganizationId = session?.session?.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    const updatedTamagotchi = await db.tamagotchi.update({
+      where: { organizationId: activeOrganizationId },
+      data: { age },
+    });
+
+    return getActionResponse({ data: updatedTamagotchi });
+  } catch (error) {
+    return getActionResponse({ error });
+  }
+};

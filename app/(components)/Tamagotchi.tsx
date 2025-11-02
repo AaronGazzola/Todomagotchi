@@ -6,12 +6,20 @@ import {
   useFeedTamagotchi,
   useGetTamagotchi,
   useHungerTimer,
+  useUpdateTamagotchiSpecies,
+  useUpdateTamagotchiAge,
 } from "./Tamagotchi.hooks";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
   type TamagotchiSpecies,
 } from "./Tamagotchi.utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 function SpriteRenderer({
   grid,
@@ -82,6 +90,8 @@ function HungerBar({
 export function Tamagotchi() {
   const { data: tamagotchi } = useGetTamagotchi();
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
+  const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
+  const { mutate: updateAge } = useUpdateTamagotchiAge();
   useHungerTimer();
 
   const color = tamagotchi?.color || "#1f2937";
@@ -102,6 +112,15 @@ export function Tamagotchi() {
   if (!tamagotchi) {
     return null;
   }
+
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const speciesOptions = Array.from({ length: 10 }, (_, i) => `species${i}`);
+  const ageOptions = [
+    { value: 0, label: "Egg" },
+    { value: 1, label: "Baby" },
+    { value: 2, label: "Child" },
+    { value: 3, label: "Adult" },
+  ];
 
   return (
     <div
@@ -158,6 +177,62 @@ export function Tamagotchi() {
           />
         </div>
       </div>
+
+      {isDevelopment && (
+        <div className="flex gap-4 mt-4 justify-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="px-4 py-2 rounded-lg bg-gradient-to-b from-pink-300 to-pink-400 shadow-md border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all text-sm font-medium text-gray-800">
+                Species
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64">
+              <div className="grid grid-cols-2 gap-2">
+                {speciesOptions.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => updateSpecies(s)}
+                    className={cn(
+                      "px-3 py-2 rounded text-sm font-medium transition-all",
+                      s === species
+                        ? "bg-pink-500 text-white"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="px-4 py-2 rounded-lg bg-gradient-to-b from-pink-300 to-pink-400 shadow-md border-2 border-pink-500 hover:from-pink-400 hover:to-pink-500 transition-all text-sm font-medium text-gray-800">
+                Age
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48">
+              <div className="flex flex-col gap-2">
+                {ageOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => updateAge(option.value)}
+                    className={cn(
+                      "px-3 py-2 rounded text-sm font-medium transition-all text-left",
+                      option.value === age
+                        ? "bg-pink-500 text-white"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
     </div>
   );
 }

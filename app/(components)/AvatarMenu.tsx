@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { useSession } from "@/lib/auth-client";
 import { TestId } from "@/test.types";
-import { RotateCcw } from "lucide-react";
+import { Mail, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HexColorPicker } from "react-colorful";
@@ -27,6 +27,7 @@ import {
   useGetOrganizationColor,
   useGetUserOrganizations,
   useResetOrganizationData,
+  useSendInvitations,
   useSetActiveOrganization,
   useUpdateTamagotchiColor,
 } from "./AvatarMenu.hooks";
@@ -36,7 +37,10 @@ export function AvatarMenu() {
   const { data: session } = useSession();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
 
   const { data: organizations } = useGetUserOrganizations();
   const { mutate: setActiveOrganization } = useSetActiveOrganization();
@@ -44,6 +48,8 @@ export function AvatarMenu() {
   const { mutate: createOrganization, isPending: isCreatingOrg } =
     useCreateOrganization();
   const { mutate: resetOrganizationData } = useResetOrganizationData();
+  const { mutate: sendInvitations, isPending: isSendingInvites } =
+    useSendInvitations();
   const { mutate: signOutMutation } = useSignOut();
 
   const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
@@ -95,6 +101,32 @@ export function AvatarMenu() {
     ) {
       resetOrganizationData();
     }
+  };
+
+  const handleSendInvitations = () => {
+    if (!activeOrganizationId || !inviteEmails.trim()) return;
+
+    const emailList = inviteEmails
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
+
+    if (emailList.length === 0) return;
+
+    sendInvitations(
+      {
+        emails: emailList,
+        role: inviteRole,
+        organizationId: activeOrganizationId,
+      },
+      {
+        onSuccess: () => {
+          setInviteEmails("");
+          setInviteRole("member");
+          setShowInviteDialog(false);
+        },
+      }
+    );
   };
 
   const hasNoOrganizations = organizations && organizations.length === 0;
@@ -216,6 +248,16 @@ export function AvatarMenu() {
 
               <Button
                 variant="outline"
+                onClick={() => setShowInviteDialog(true)}
+                className="w-full"
+                disabled={!activeOrganizationId}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Invite Users
+              </Button>
+
+              <Button
+                variant="outline"
                 onClick={handleReset}
                 className="w-full"
                 data-testid={TestId.AVATAR_MENU_RESET_BUTTON}
@@ -270,6 +312,61 @@ export function AvatarMenu() {
               data-testid={TestId.CREATE_ORG_SUBMIT}
             >
               {isCreatingOrg ? "Creating..." : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite Users to {activeOrganization?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Email Addresses</label>
+              <Input
+                placeholder="email1@example.com, email2@example.com"
+                value={inviteEmails}
+                onChange={(e) => setInviteEmails(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isSendingInvites) {
+                    handleSendInvitations();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Separate multiple emails with commas
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Role</label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowInviteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendInvitations}
+              disabled={!inviteEmails.trim() || isSendingInvites}
+            >
+              {isSendingInvites ? "Sending..." : "Send Invitations"}
             </Button>
           </DialogFooter>
         </DialogContent>

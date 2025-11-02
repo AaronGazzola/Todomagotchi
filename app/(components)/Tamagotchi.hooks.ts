@@ -6,6 +6,8 @@ import {
   feedTamagotchiAction,
   getTamagotchiAction,
   updateTamagotchiHungerAction,
+  updateTamagotchiSpeciesAction,
+  updateTamagotchiAgeAction,
 } from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
 
@@ -86,4 +88,45 @@ export const useHungerTimer = () => {
 
     return () => clearInterval(interval);
   }, [updateHunger]);
+};
+
+export const useUpdateTamagotchiSpecies = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (species: string) => {
+      const { data, error } = await updateTamagotchiSpeciesAction(species);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      showSuccessToast("Species updated!");
+    },
+    onError: (error: Error) => {
+      showErrorToast(
+        error.message || "Failed to update species",
+        "Update Failed"
+      );
+    },
+  });
+};
+
+export const useUpdateTamagotchiAge = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (age: number) => {
+      const { data, error } = await updateTamagotchiAgeAction(age);
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      showSuccessToast("Age updated!");
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to update age", "Update Failed");
+    },
+  });
 };
