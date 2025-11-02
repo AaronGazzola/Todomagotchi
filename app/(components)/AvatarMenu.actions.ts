@@ -3,6 +3,7 @@
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
+import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { headers } from "next/headers";
 import {
   InvitationResult,
@@ -105,6 +106,8 @@ export const updateTamagotchiColorAction = async (
       data: { color },
     });
 
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse();
   } catch (error) {
     return getActionResponse({ error });
@@ -184,8 +187,8 @@ export const sendInvitationsAction = async (
       },
     });
 
-    if (!member || member.role !== "admin") {
-      throw new Error("Only organization admins can send invitations");
+    if (!member || (member.role !== "admin" && member.role !== "owner")) {
+      throw new Error("Only organization admins and owners can send invitations");
     }
 
     const results: InvitationResult[] = [];
@@ -258,6 +261,8 @@ export const sendInvitationsAction = async (
           email: trimmedEmail,
           invitationId: invitation.id,
         });
+
+        sseBroadcaster.notifyInvitation(trimmedEmail);
       } catch (error) {
         results.push({
           success: false,

@@ -10,8 +10,11 @@ import {
   useGetPendingInvitations,
 } from "./AvatarMenu.hooks";
 import { PendingInvitation } from "./AvatarMenu.types";
+import { useInvitationSSE } from "./AvatarMenu.sse";
 
 export function InvitationToasts() {
+  useInvitationSSE();
+
   const { data: invitations } = useGetPendingInvitations();
   const { mutate: acceptInvitation } = useAcceptInvitation();
   const { mutate: declineInvitation } = useDeclineInvitation();

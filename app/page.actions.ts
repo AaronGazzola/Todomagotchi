@@ -3,6 +3,7 @@
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
+import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Todo } from "@prisma/client";
 import { headers } from "next/headers";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
@@ -51,6 +52,9 @@ export const createTodoAction = async (
 
     await feedTamagotchiHelper(db, activeOrganizationId);
 
+    sseBroadcaster.notifyTodos(activeOrganizationId);
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse({ data: todo });
   } catch (error) {
     return getActionResponse({ error });
@@ -91,6 +95,9 @@ export const toggleTodoAction = async (
       await feedTamagotchiHelper(db, activeOrganizationId);
     }
 
+    sseBroadcaster.notifyTodos(activeOrganizationId);
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse({ data: updatedTodo });
   } catch (error) {
     return getActionResponse({ error });
@@ -121,6 +128,8 @@ export const deleteTodoAction = async (
     }
 
     await db.todo.delete({ where: { id } });
+
+    sseBroadcaster.notifyTodos(activeOrganizationId);
 
     return getActionResponse();
   } catch (error) {

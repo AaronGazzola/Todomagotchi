@@ -4,6 +4,7 @@ import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { createRLSClient } from "@/lib/prisma-rls";
+import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Tamagotchi } from "@prisma/client";
 import { headers } from "next/headers";
 
@@ -112,6 +113,8 @@ export const feedTamagotchiAction = async (): Promise<
       activeOrganizationId
     );
 
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
     return getActionResponse({ error });
@@ -168,6 +171,8 @@ export const updateTamagotchiHungerAction = async (): Promise<
       },
     });
 
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
     return getActionResponse({ error });
@@ -192,6 +197,8 @@ export const updateTamagotchiSpeciesAction = async (
       data: { species },
     });
 
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
+
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
     return getActionResponse({ error });
@@ -215,6 +222,8 @@ export const updateTamagotchiAgeAction = async (
       where: { organizationId: activeOrganizationId },
       data: { age },
     });
+
+    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {

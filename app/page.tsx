@@ -6,9 +6,11 @@ import { Tamagotchi } from "@/app/(components)/Tamagotchi";
 import { TodoList } from "@/app/(components)/TodoList";
 import { useSession } from "@/lib/auth-client";
 import { useGetUser } from "./layout.hooks";
+import { useTodosSSE } from "./page.sse";
 
 export default function Home() {
   useGetUser();
+  useTodosSSE();
 
   const { data: session } = useSession();
   const hasActiveOrganization = !!session?.session?.activeOrganizationId;

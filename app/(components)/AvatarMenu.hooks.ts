@@ -24,7 +24,8 @@ export const useGetUserOrganizations = () => {
       if (error) throw new Error(error);
       return (data as Array<{ id: string; name: string }>) || [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -167,8 +168,7 @@ export const useGetPendingInvitations = () => {
       if (error) throw new Error(error);
       return data || [];
     },
-    refetchInterval: 1000 * 60 * 2,
-    staleTime: 1000 * 60,
+    staleTime: Infinity,
   });
 };
 

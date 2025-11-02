@@ -26,6 +26,16 @@ export const auth = betterAuth({
               data: { createdBy: user.id },
             });
 
+            await prisma.member.update({
+              where: {
+                userId_organizationId: {
+                  userId: user.id,
+                  organizationId: organization.id,
+                },
+              },
+              data: { role: "owner" },
+            });
+
             await prisma.tamagotchi.create({
               data: {
                 organizationId: organization.id,

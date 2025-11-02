@@ -9,6 +9,7 @@ import {
   useUpdateTamagotchiSpecies,
   useUpdateTamagotchiAge,
 } from "./Tamagotchi.hooks";
+import { useTamagotchiSSE } from "./Tamagotchi.sse";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
@@ -89,6 +90,8 @@ function HungerBar({
 }
 
 export function Tamagotchi() {
+  useTamagotchiSSE();
+
   const { data: tamagotchi } = useGetTamagotchi();
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
