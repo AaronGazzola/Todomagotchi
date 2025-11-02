@@ -60,47 +60,22 @@ Follow the examples outlined in [`docs/util.md`](docs/util.md) when working on h
 
 # Testing
 
-All tests should be performed with Jest or Playwright and documented in the `Test.md` document
+All tests should be performed with Playwright and documented in the `Tests.md` document. For complete testing instructions, patterns, and documentation format, refer to [`docs/Testing.md`](docs/Testing.md).
 
-## Test rules:
+# Environment Variables and Browser APIs
 
-- The test should find elements in the DOM via data-attributes. Add corresponding data-attributes to the elements in the components. Import the data-attribute values from an enum exported from `@/test.types.ts`
-- Do not use wait in the tests. Only use timeouts.
+All environment variable access and browser API usage must use the centralized utilities from `@/lib/env.utils`:
 
-## Test.md
+```typescript
+import { ENV, getBrowserAPI } from "@/lib/env.utils";
 
-The test document should list all tests in the repo, with each test case listed in a single line with an indented line below with the pass condition.
-Test document should begin with an index and number each test as demonstrated below:
-
-# Test.md file example:
-
-```md
-# Test Documentation
-
-## Run All Tests
-
-**Command:** `npm run test`
-✓ Runs the complete test suite across all test files
-
-## Test Index
-
-1. [Name](#1-name-tests) - `npm run test:name`
-
-## 1. Name Tests
-
-**File:** `__tests__/name.test.ts`
-**Command:** `npm run test:name`
-
-### Name Test
-
-- should do something
-  ✓ Validates expected results
-
-- should do something else
-  ✓ Validates expected results
+const apiUrl = ENV.SUPABASE_URL;
+const storage = getBrowserAPI(() => localStorage);
 ```
+
+This ensures universal compatibility between browser and Node.js test environments with zero performance overhead.
 
 # Console.logging
 
-All logging should be performed using the `conditionalLog` function exported from `lib/log.util.ts`
-The `NEXT_PUBLIC_LOG_LABELS` variable in `.env.local` stores a comma separated string of log labels. Logs are returned if `NEXT_PUBLIC_LOG_LABELS="all"`, or if `NEXT_PUBLIC_LOG_LABELS` includes the label arg in `conditionalLog`.
+All logging should be performed using the `conditionalLog` function exported from `lib/log.utils.ts`
+The `VITE_LOG_LABELS` variable in `.env.local` stores a comma separated string of log labels. Logs are returned if `VITE_LOG_LABELS="all"`, or if `VITE_LOG_LABELS` includes the label arg in `conditionalLog`.
