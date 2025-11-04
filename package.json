@@ -14,6 +14,8 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "test": "playwright test",
+    "test:auth": "playwright test e2e/auth.spec.ts",
+    "test:auth:headed": "playwright test e2e/auth.spec.ts --headed",
     "test:e2e:auth": "playwright test e2e/auth.spec.ts",
     "test:e2e:org": "playwright test e2e/organization.spec.ts",
     "test:e2e:todo": "playwright test e2e/todo.spec.ts",

@@ -196,12 +196,14 @@ test.describe("Feature Name Tests", () => {
 
 #### E2E Test Rules
 
-1. **Conditions Must Include**: User type, auth state, action performed, and user email
-2. **Catch All Assertions**: Wrap all `expect()` assertions in try-catch blocks to prevent Playwright stack traces
-3. **Use logTestResult Helper**: Automatically captures screenshots and error toasts on failure
-4. **Throw Generic Error on Failure**: Only throw `new Error('Test failed - see summary for details')` to preserve test failure status
-5. **Use Relative Imports**: Import test utilities from `"../src/lib/test.utils"` instead of `"@/lib/test.utils"`
-6. **No Fixed Waits - Use Proper Timeouts**: Do not use fixed wait times (e.g., `page.waitForTimeout()`). Instead, use `expect()` assertions with timeouts to wait for elements. **Critical distinction**:
+1. **Pre-Register All Expected Tests**: At the start of each test, register ALL assertions that should execute using `logger.registerExpectedTest()`. This ensures unreached assertions are counted as failures.
+2. **Track Failures, Don't Throw Mid-Test**: Use a `failures: string[]` array to track failures throughout the test. Only throw at the very end if `failures.length > 0`. This ensures all assertions execute and are logged.
+3. **Finalize Unreached Tests**: Call `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing data. This marks any unreached assertions as failed.
+4. **Conditions Must Include**: User type, auth state, action performed, and user email
+5. **Catch All Assertions**: Wrap all `expect()` assertions in try-catch blocks to prevent Playwright stack traces
+6. **Use logTestResult Helper**: Automatically captures screenshots and error toasts on failure
+7. **Use Relative Imports**: Import test utilities from `"../src/lib/test.utils"` instead of `"@/lib/test.utils"`
+8. **No Fixed Waits - Use Proper Timeouts**: Do not use fixed wait times (e.g., `page.waitForTimeout()`). Instead, use `expect()` assertions with timeouts to wait for elements. **Critical distinction**:
    - ❌ **WRONG**: `const visible = await element.isVisible({ timeout: 15000 }).catch(() => false)` - The `isVisible()` method checks visibility RIGHT NOW; the timeout only applies to finding the element, NOT waiting for it to become visible. Adding `.catch()` prevents proper waiting by swallowing timeout errors.
    - ✅ **CORRECT**: Wrap in try-catch to wait for the element, then check visibility for logging:
      ```typescript
@@ -214,27 +216,27 @@ test.describe("Feature Name Tests", () => {
      }
      ```
    - The `expect()` assertion actively waits for the element to become visible within the timeout period. The try-catch prevents Playwright stack traces.
-7. **Navigation with Async Operations**: When clicks trigger async operations (database queries, API calls) before navigation, use `waitUntil: 'domcontentloaded'` with increased timeout:
+9. **Navigation with Async Operations**: When clicks trigger async operations (database queries, API calls) before navigation, use `waitUntil: 'domcontentloaded'` with increased timeout:
    - ❌ **WRONG**: `await button.click(); await page.waitForURL(/\/target/);` - Default `waitUntil: 'load'` may timeout when async DB operations delay navigation
    - ✅ **CORRECT**: `await button.click(); await page.waitForURL(/\/target/, { timeout: 20000, waitUntil: 'domcontentloaded' });` - Waits for DOM ready instead of full page load, allows time for async operations
    - Use this pattern when click handlers perform database/API operations before calling `navigate()`
-8. **Test Isolation - Page Navigation**: When running tests sequentially in a suite, ensure proper page state isolation to prevent state pollution between tests:
-   - ❌ **WRONG**: Relying on previous test's navigation or assuming clean state
-   - ✅ **CORRECT**: Each test should explicitly navigate to its starting page before authentication/setup:
-     ```typescript
-     test("should perform action", async ({ page }) => {
-       await page.goto("/starting-page");
-       await signIn(page, testUser, password);
-       // ... rest of test
-     });
-     ```
-   - **Why**: Tests may pass in isolation but fail in suite due to page state from previous tests. Explicit navigation ensures each test starts from a known state.
-   - **When to apply**: Any test that can be run both individually and as part of a suite, especially tests involving authentication or page-specific state.
-9. **Structured Logging**: Every assertion logged using `logTestResult()` - stores details only for failures
-10. **Real User Flows**: Test complete user pathways including role/subscription checks
-11. **Screenshot on Failure**: Automatically captured via `logTestResult()` helper
-12. **Toast Error Checking**: Automatically checked and logged via `logTestResult()` helper
-13. **Summary Output Only**: Single summary printed after all tests complete, no intermediate logs
+10. **Test Isolation - Page Navigation**: When running tests sequentially in a suite, ensure proper page state isolation to prevent state pollution between tests:
+    - ❌ **WRONG**: Relying on previous test's navigation or assuming clean state
+    - ✅ **CORRECT**: Each test should explicitly navigate to its starting page before authentication/setup:
+      ```typescript
+      test("should perform action", async ({ page }) => {
+        await page.goto("/starting-page");
+        await signIn(page, testUser, password);
+        // ... rest of test
+      });
+      ```
+    - **Why**: Tests may pass in isolation but fail in suite due to page state from previous tests. Explicit navigation ensures each test starts from a known state.
+    - **When to apply**: Any test that can be run both individually and as part of a suite, especially tests involving authentication or page-specific state.
+11. **Structured Logging**: Every assertion logged using `logTestResult()` - stores details only for failures
+12. **Real User Flows**: Test complete user pathways including role/subscription checks
+13. **Screenshot on Failure**: Automatically captured via `logTestResult()` helper
+14. **Toast Error Checking**: Automatically checked and logged via `logTestResult()` helper
+15. **Summary Output Only**: Single summary printed after all tests complete, no intermediate logs
 
 ### Unit Tests (Playwright)
 
@@ -615,6 +617,8 @@ test.describe("Feature Tests", () => {
   const logger = new TestResultLogger();
 
   test.afterAll(async () => {
+    logger.finalizeUnreachedTests();
+
     const testResultsDir = path.join(process.cwd(), "test-results");
     if (!fs.existsSync(testResultsDir)) {
       fs.mkdirSync(testResultsDir, { recursive: true });
@@ -644,6 +648,19 @@ test.describe("Feature Tests", () => {
   });
 
   test("should perform action", async ({ page }) => {
+    const failures: string[] = [];
+
+    logger.registerExpectedTest(
+      "Feature button visibility",
+      "user=authenticated, page=/feature",
+      "Button should be visible"
+    );
+    logger.registerExpectedTest(
+      "Feature action executes",
+      "user=authenticated, page=/feature, action=click button",
+      "Action completes successfully"
+    );
+
     await page.goto("/feature");
 
     const element = page.getByTestId(TestId.FEATURE_BUTTON);
@@ -668,6 +685,38 @@ test.describe("Feature Tests", () => {
     );
 
     if (!isVisible) {
+      failures.push("Button not visible");
+    }
+
+    if (isVisible) {
+      await element.click();
+    }
+
+    const actionComplete = await page
+      .locator("text=Success")
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+
+    await logTestResult(
+      logger,
+      page,
+      "Feature action executes",
+      formatTestConditions({
+        user: "authenticated",
+        page: "/feature",
+        action: "click button",
+      }),
+      "Action completes successfully",
+      actionComplete,
+      "Success message shown",
+      "Success message not shown"
+    );
+
+    if (!actionComplete) {
+      failures.push("Action did not complete");
+    }
+
+    if (failures.length > 0) {
       throw new Error("Test failed - see summary for details");
     }
   });
@@ -676,27 +725,128 @@ test.describe("Feature Tests", () => {
 
 **Key Requirements:**
 
-1. **Import fs and path**: Required for file-based inter-process communication
-2. **Write to JSON file in test.afterAll()**: Persists data across process boundaries
-3. **Use timestamped filenames**: Ensures unique files for each describe block
-4. **Wrap assertions in try-catch**: Prevents Playwright stack traces during execution
-5. **Use logTestResult helper**: Automatically captures screenshots and error toasts on failure
-6. **Throw generic error on failure**: Preserves test failure status without duplicate error details
-7. **All diagnostic data goes through logger**: Conditions, expectations, observed values, screenshots, error toasts
-8. **MinimalReporter aggregates all files**: Reporter's `onEnd()` reads all JSON files and outputs unified summary
+1. **Pre-register ALL expected tests**: Call `logger.registerExpectedTest()` for every assertion at the start of each test
+2. **Track failures, don't throw mid-test**: Use `failures: string[]` array, only throw at the very end
+3. **Finalize unreached tests**: Call `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing
+4. **Import fs and path**: Required for file-based inter-process communication
+5. **Write to JSON file in test.afterAll()**: Persists data across process boundaries
+6. **Use timestamped filenames**: Ensures unique files for each describe block
+7. **Wrap assertions in try-catch**: Prevents Playwright stack traces during execution
+8. **Use logTestResult helper**: Automatically captures screenshots and error toasts on failure
+9. **All diagnostic data goes through logger**: Conditions, expectations, observed values, screenshots, error toasts
+10. **MinimalReporter aggregates all files**: Reporter's `onEnd()` reads all JSON files and outputs unified summary
+
+### Pre-Registration Pattern for Complete Test Coverage
+
+**Why Pre-Register Tests?**
+
+Without pre-registration, if a test fails mid-execution, subsequent assertions never run and are never logged. The test summary would show only partial results, hiding the true scope of failures.
+
+**How It Works:**
+
+1. **At test start**: Register ALL expected assertions using `logger.registerExpectedTest(name, conditions, expectation)`
+2. **During execution**: Track failures in a `failures: string[]` array instead of throwing immediately
+3. **At test end**: Only throw if `failures.length > 0`
+4. **In afterAll**: Call `logger.finalizeUnreachedTests()` to mark unreached assertions as failed
+
+**Result:** The summary always shows the TOTAL number of assertions that SHOULD have executed, whether they:
+
+- Passed ✓
+- Failed during execution ✗
+- Failed to execute due to earlier failures ✗
+
+**Example:**
+
+```typescript
+test("complete user flow", async ({ page }) => {
+  const failures: string[] = [];
+
+  // Pre-register ALL assertions this test will make
+  logger.registerExpectedTest("Step 1", "condition1", "expectation1");
+  logger.registerExpectedTest("Step 2", "condition2", "expectation2");
+  logger.registerExpectedTest("Step 3", "condition3", "expectation3");
+
+  // Execute and log Step 1
+  const step1Result = await checkStep1(page);
+  await logTestResult(
+    logger,
+    page,
+    "Step 1",
+    "condition1",
+    "expectation1",
+    step1Result,
+    "success",
+    "failure"
+  );
+  if (!step1Result) failures.push("Step 1 failed");
+
+  // Even if Step 1 failed, continue to Step 2
+  const step2Result = await checkStep2(page);
+  await logTestResult(
+    logger,
+    page,
+    "Step 2",
+    "condition2",
+    "expectation2",
+    step2Result,
+    "success",
+    "failure"
+  );
+  if (!step2Result) failures.push("Step 2 failed");
+
+  // And Step 3
+  const step3Result = await checkStep3(page);
+  await logTestResult(
+    logger,
+    page,
+    "Step 3",
+    "condition3",
+    "expectation3",
+    step3Result,
+    "success",
+    "failure"
+  );
+  if (!step3Result) failures.push("Step 3 failed");
+
+  // Only throw at the very end
+  if (failures.length > 0) {
+    throw new Error("Test failed - see summary for details");
+  }
+});
+```
+
+If Step 1 fails, the summary shows:
+
+```
+3 assertions | 0 passed | 3 failed
+
+Failed Assertions:
+1. Step 1
+   Expected: expectation1
+   Observed: failure
+2. Step 2
+   Expected: expectation2
+   Observed: Test did not execute - previous assertion failed
+3. Step 3
+   Expected: expectation3
+   Observed: Test did not execute - previous assertion failed
+```
+
+Without pre-registration, you'd only see: `1 assertion | 0 passed | 1 failed` (hiding 2 assertions)
 
 ### Why This File-Based Logging Strategy?
 
 **Benefits:**
 
-1. **Clean Execution Output**: Minimal reporter shows progress without clutter
-2. **No Duplicate Errors**: Playwright stack traces suppressed, all diagnostics in summary
-3. **Actionable Failure Details**: Complete context provided only for failures
-4. **Efficient Review**: Passed tests counted only, failures get full attention
-5. **Automatic Diagnostics**: Screenshots and error toasts captured without manual effort
-6. **Centralized Aggregation**: Single summary shows results from all test files in the run
-7. **Reliable Output**: Uses Playwright's reporter API which has proper stdout access
-8. **Process-Safe**: File system bridges isolated worker and reporter processes
+1. **Complete Test Coverage**: Always shows total assertions, not just what executed
+2. **Clean Execution Output**: Minimal reporter shows progress without clutter
+3. **No Duplicate Errors**: Playwright stack traces suppressed, all diagnostics in summary
+4. **Actionable Failure Details**: Complete context provided only for failures
+5. **Efficient Review**: Passed tests counted only, failures get full attention
+6. **Automatic Diagnostics**: Screenshots and error toasts captured without manual effort
+7. **Centralized Aggregation**: Single summary shows results from all test files in the run
+8. **Reliable Output**: Uses Playwright's reporter API which has proper stdout access
+9. **Process-Safe**: File system bridges isolated worker and reporter processes
 
 **Architecture Advantages:**
 
@@ -1106,12 +1256,15 @@ test("filters results by category", async () => {
 
 - [ ] Imports `TestResultLogger` from `@/lib/test.utils`
 - [ ] Imports `TestId` enum from `@/test.types`
+- [ ] Pre-registers ALL expected tests at start of each test using `logger.registerExpectedTest()`
+- [ ] Uses `failures: string[]` array to track failures throughout test
+- [ ] Only throws at end if `failures.length > 0`
+- [ ] Calls `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing
 - [ ] Uses `signIn()` for authentication
 - [ ] Selects elements using `TestId` enum values
 - [ ] Wraps `expect()` assertions in try-catch blocks
 - [ ] Uses `logTestResult()` for all assertions (not `logger.log()`)
 - [ ] Writes logger data to JSON file in `test.afterAll()`
-- [ ] Throws generic error on failure: `throw new Error('Test failed - see summary for details')`
 - [ ] No fixed waits (`waitForTimeout`)
 
 **Documentation:**
@@ -1556,6 +1709,19 @@ This will open a browser with detailed test results after each test run. Remove 
 Run all tests: `npm run test`
 
 Individual test commands documented in [Tests.md](Tests.md)
+
+### Running Tests in Headed Mode
+
+By default, all e2e tests run in headless mode (no visible browser window). To run tests in headed mode and see the browser window during test execution, use the `:headed` script variants:
+
+```bash
+npm run test:e2e:partners:headed
+npm run test:e2e:booking:headed
+npm run test:e2e:coaches:headed
+npm run test:e2e:auth:headed
+```
+
+All major e2e test suites have corresponding `:headed` variants available. See [Tests.md](Tests.md) for the complete list of available test commands.
 
 ## Test Log Aggregation
 

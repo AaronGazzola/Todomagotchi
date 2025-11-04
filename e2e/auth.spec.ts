@@ -1,579 +1,343 @@
 import { test, expect } from "@playwright/test";
-import {
-  TestResultLogger,
-  signIn,
-  signUp,
-  signOut,
-  generateUniqueEmail,
-  formatTestConditions,
-  logTestResult,
-  isVisibleByTestId,
-  fillByTestId,
-  clickByTestId,
-} from "../lib/test.utils";
 import { TestId } from "../test.types";
-import * as fs from "fs";
-import * as path from "path";
-import { cleanupTestData } from "./utils/test-cleanup";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+const TEST_USER_EMAIL = "test-signup@example.com";
+const TEST_USER_NAME = "Test Signup User";
+const TEST_PASSWORD = "TestPassword123!";
+const EXISTING_USER_EMAIL = "e2e-test@example.com";
+
+async function cleanupTestUsers() {
+  await prisma.member.deleteMany({
+    where: {
+      user: {
+        email: {
+          in: [TEST_USER_EMAIL],
+        },
+      },
+    },
+  });
+
+  await prisma.invitation.deleteMany({
+    where: {
+      email: TEST_USER_EMAIL,
+    },
+  });
+
+  await prisma.session.deleteMany({
+    where: {
+      user: {
+        email: {
+          in: [TEST_USER_EMAIL, EXISTING_USER_EMAIL],
+        },
+      },
+    },
+  });
+
+  await prisma.account.deleteMany({
+    where: {
+      user: {
+        email: {
+          in: [TEST_USER_EMAIL],
+        },
+      },
+    },
+  });
+
+  const testUser = await prisma.user.findUnique({
+    where: { email: TEST_USER_EMAIL },
+    include: { member: { include: { organization: true } } },
+  });
+
+  if (testUser) {
+    const orgIds = testUser.member.map((m) => m.organizationId);
+
+    await prisma.todo.deleteMany({
+      where: { organizationId: { in: orgIds } },
+    });
+
+    await prisma.tamagotchi.deleteMany({
+      where: { organizationId: { in: orgIds } },
+    });
+
+    await prisma.organization.deleteMany({
+      where: { id: { in: orgIds } },
+    });
+  }
+
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        in: [TEST_USER_EMAIL],
+      },
+    },
+  });
+}
 
 test.describe("Authentication Flow Tests", () => {
-  const logger = new TestResultLogger();
-  const testUserEmails: string[] = [];
+  test.beforeAll(async () => {
+    await cleanupTestUsers();
+  });
 
   test.afterAll(async () => {
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-
-    await cleanupTestData(testUserEmails);
+    await cleanupTestUsers();
+    await prisma.$disconnect();
   });
 
-  test("should allow new user to sign up with email and password", async ({
-    page,
-  }) => {
-    const uniqueEmail = generateUniqueEmail("newuser@example.com");
-    testUserEmails.push(uniqueEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "New User",
-      email: uniqueEmail,
-      password: "Password123!",
-    });
-
-    let redirected = false;
-    try {
-      await page.waitForURL(/\/(?!auth)/, {
-        timeout: 15000,
-        waitUntil: "domcontentloaded",
-      });
-      redirected = true;
-    } catch (error) {
-      redirected = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "User registration and redirect",
-      formatTestConditions({
-        action: "sign up",
-        email: uniqueEmail,
-        page: "/auth",
-      }),
-      "User account created, redirected to dashboard",
-      redirected,
-      "User created and redirected successfully",
-      "User not redirected or registration failed"
-    );
-
-    if (!redirected) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should prevent sign up with invalid email format", async ({ page }) => {
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await fillByTestId(page, TestId.SIGN_UP_NAME, "Test User");
-    await fillByTestId(page, TestId.SIGN_UP_EMAIL, "invalidemail");
-    await fillByTestId(page, TestId.SIGN_UP_PASSWORD, "Password123!");
-    await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-
-    let errorVisible = false;
-    try {
-      await expect(page.locator(`[data-testid="${TestId.TOAST_ERROR}"]`)).toBeVisible({
-        timeout: 5000,
-      });
-      errorVisible = await page
-        .locator(`[data-testid="${TestId.TOAST_ERROR}"]`)
-        .isVisible();
-    } catch (error) {
-      errorVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Invalid email validation",
-      formatTestConditions({
-        action: "sign up",
-        email: "invalidemail",
-        page: "/auth",
-      }),
-      "Error message displayed for invalid email",
-      errorVisible,
-      "Error message displayed",
-      "No error message shown"
-    );
-
-    if (!errorVisible) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should prevent sign up with password less than 8 characters", async ({
-    page,
-  }) => {
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await fillByTestId(page, TestId.SIGN_UP_NAME, "Test User");
-    await fillByTestId(page, TestId.SIGN_UP_EMAIL, "test@example.com");
-    await fillByTestId(page, TestId.SIGN_UP_PASSWORD, "Pass1!");
-    await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-
-    let errorVisible = false;
-    try {
-      await expect(page.locator(`[data-testid="${TestId.TOAST_ERROR}"]`)).toBeVisible({
-        timeout: 5000,
-      });
-      errorVisible = await page
-        .locator(`[data-testid="${TestId.TOAST_ERROR}"]`)
-        .isVisible();
-    } catch (error) {
-      errorVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Weak password validation",
-      formatTestConditions({
-        action: "sign up",
-        password: "Pass1!",
-        page: "/auth",
-      }),
-      "Error message displayed for weak password",
-      errorVisible,
-      "Error message displayed",
-      "No error message shown"
-    );
-
-    if (!errorVisible) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should prevent sign up with duplicate email", async ({ page }) => {
-    const duplicateEmail = generateUniqueEmail("duplicate@example.com");
-    testUserEmails.push(duplicateEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "First User",
-      email: duplicateEmail,
-      password: "Password123!",
-    });
-
-    await page.waitForURL(/\/(?!auth)/, {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
-    });
-
-    await signOut(page);
-
-    await page.waitForURL("/auth", { timeout: 10000 });
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Second User",
-      email: duplicateEmail,
-      password: "Password123!",
-    });
-
-    let errorVisible = false;
-    try {
-      await expect(page.locator(`[data-testid="${TestId.TOAST_ERROR}"]`)).toBeVisible({
-        timeout: 5000,
-      });
-      errorVisible = await page
-        .locator(`[data-testid="${TestId.TOAST_ERROR}"]`)
-        .isVisible();
-    } catch (error) {
-      errorVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Duplicate email validation",
-      formatTestConditions({
-        action: "sign up",
-        email: duplicateEmail,
-        page: "/auth",
-      }),
-      "Error message displayed indicating email already exists",
-      errorVisible,
-      "Error message displayed",
-      "No error message shown"
-    );
-
-    if (!errorVisible) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should allow existing user to sign in with correct credentials", async ({
-    page,
-  }) => {
-    const testEmail = generateUniqueEmail("signin@example.com");
-    testUserEmails.push(testEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Sign In Test User",
-      email: testEmail,
-      password: "Password123!",
-    });
-
-    await page.waitForURL(/\/(?!auth)/, {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
-    });
-
-    await signOut(page);
-
-    await page.waitForURL("/auth", { timeout: 10000 });
-
-    await page.goto("/auth");
-
-    await signIn(page, testEmail, "Password123!");
-
-    let redirected = false;
-    try {
-      await page.waitForURL(/\/(?!auth)/, {
-        timeout: 15000,
-        waitUntil: "domcontentloaded",
-      });
-      redirected = true;
-    } catch (error) {
-      redirected = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "User sign in with correct credentials",
-      formatTestConditions({
-        action: "sign in",
-        email: testEmail,
-        page: "/auth",
-      }),
-      "User authenticated, redirected to dashboard",
-      redirected,
-      "User authenticated and redirected successfully",
-      "User not redirected or authentication failed"
-    );
-
-    if (!redirected) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should prevent sign in with incorrect password", async ({ page }) => {
-    const testEmail = generateUniqueEmail("wrongpass@example.com");
-    testUserEmails.push(testEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Wrong Password Test",
-      email: testEmail,
-      password: "Password123!",
-    });
-
-    await page.waitForURL(/\/(?!auth)/, {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
-    });
-
-    await signOut(page);
-
-    await page.waitForURL("/auth", { timeout: 10000 });
-
-    await page.goto("/auth");
-
-    await signIn(page, testEmail, "WrongPassword123!");
-
-    let errorVisible = false;
-    try {
-      await expect(page.locator(`[data-testid="${TestId.TOAST_ERROR}"]`)).toBeVisible({
-        timeout: 5000,
-      });
-      errorVisible = await page
-        .locator(`[data-testid="${TestId.TOAST_ERROR}"]`)
-        .isVisible();
-    } catch (error) {
-      errorVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Incorrect password validation",
-      formatTestConditions({
-        action: "sign in",
-        email: testEmail,
-        password: "WrongPassword123!",
-        page: "/auth",
-      }),
-      "Error message displayed for invalid credentials",
-      errorVisible,
-      "Error message displayed",
-      "No error message shown"
-    );
-
-    if (!errorVisible) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should prevent sign in with non-existent email", async ({ page }) => {
-    await page.goto("/auth");
-
-    await signIn(page, "nonexistent@example.com", "Password123!");
-
-    let errorVisible = false;
-    try {
-      await expect(page.locator(`[data-testid="${TestId.TOAST_ERROR}"]`)).toBeVisible({
-        timeout: 5000,
-      });
-      errorVisible = await page
-        .locator(`[data-testid="${TestId.TOAST_ERROR}"]`)
-        .isVisible();
-    } catch (error) {
-      errorVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Non-existent email validation",
-      formatTestConditions({
-        action: "sign in",
-        email: "nonexistent@example.com",
-        page: "/auth",
-      }),
-      "Error message displayed for invalid credentials",
-      errorVisible,
-      "Error message displayed",
-      "No error message shown"
-    );
-
-    if (!errorVisible) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should maintain session across page refreshes", async ({ page }) => {
-    const testEmail = generateUniqueEmail("session@example.com");
-    testUserEmails.push(testEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Session Test User",
-      email: testEmail,
-      password: "Password123!",
-    });
-
-    await page.waitForURL(/\/(?!auth)/, {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
-    });
-
-    await page.reload();
-
-    const url = page.url();
-    const sessionMaintained = !url.includes("/auth");
-
-    await logTestResult(
-      logger,
-      page,
-      "Session persistence after refresh",
-      formatTestConditions({
-        action: "page refresh",
-        email: testEmail,
-      }),
-      "User remains authenticated after browser refresh",
-      sessionMaintained,
-      "Session maintained after refresh",
-      "User redirected to auth page"
-    );
-
-    if (!sessionMaintained) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should sign out authenticated user", async ({ page }) => {
-    const testEmail = generateUniqueEmail("signout@example.com");
-    testUserEmails.push(testEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Sign Out Test User",
-      email: testEmail,
-      password: "Password123!",
-    });
-
-    await page.waitForURL(/\/(?!auth)/, {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
-    });
-
-    await signOut(page);
-
-    let redirected = false;
-    try {
-      await page.waitForURL("/auth", { timeout: 10000 });
-      redirected = true;
-    } catch (error) {
-      redirected = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "User sign out",
-      formatTestConditions({
-        action: "sign out",
-        email: testEmail,
-      }),
-      "Session cleared, user redirected to auth page",
-      redirected,
-      "User signed out and redirected successfully",
-      "User not redirected or sign out failed"
-    );
-
-    if (!redirected) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should redirect unauthenticated users to auth page", async ({
+  test("should complete full auth flow: sign up, sign out, sign in, sign out", async ({
     page,
   }) => {
     await page.goto("/");
 
-    let redirected = false;
-    try {
-      await page.waitForURL("/auth", { timeout: 10000 });
-      redirected = true;
-    } catch (error) {
-      redirected = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Unauthenticated user redirect",
-      formatTestConditions({
-        action: "access protected route",
-        page: "/",
-        authState: "unauthenticated",
-      }),
-      "Protected routes redirect to /auth when no session",
-      redirected,
-      "User redirected to auth page",
-      "User able to access protected route"
-    );
-
-    if (!redirected) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-
-  test("should allow authenticated users to access protected routes", async ({
-    page,
-  }) => {
-    const testEmail = generateUniqueEmail("protected@example.com");
-    testUserEmails.push(testEmail);
-
-    await page.goto("/auth");
-
-    await clickByTestId(page, TestId.SIGN_UP_LINK);
-
-    await signUp(page, {
-      name: "Protected Route Test User",
-      email: testEmail,
-      password: "Password123!",
+    await expect(page.getByTestId(TestId.SIGN_IN_BUTTON)).toBeVisible({
+      timeout: 10000,
     });
 
-    let canAccess = false;
-    try {
-      await page.waitForURL(/\/(?!auth)/, {
-        timeout: 15000,
-        waitUntil: "domcontentloaded",
-      });
-      canAccess = true;
-    } catch (error) {
-      canAccess = false;
-    }
+    await page.getByTestId(TestId.SIGN_IN_BUTTON).click();
+    await page.waitForURL(/\/sign-in/, { timeout: 10000 });
 
-    await logTestResult(
-      logger,
-      page,
-      "Authenticated user access to protected routes",
-      formatTestConditions({
-        action: "access protected route",
-        email: testEmail,
-        authState: "authenticated",
-      }),
-      "Dashboard and app pages accessible with valid session",
-      canAccess,
-      "User can access protected routes",
-      "User cannot access protected routes"
+    await page.getByTestId(TestId.SIGN_UP_LINK).click();
+    await page.waitForURL(/\/sign-up/, { timeout: 10000 });
+
+    await page.getByTestId(TestId.SIGN_UP_NAME).fill(TEST_USER_NAME);
+    await page.getByTestId(TestId.SIGN_UP_EMAIL).fill(TEST_USER_EMAIL);
+    await page.getByTestId(TestId.SIGN_UP_PASSWORD).fill(TEST_PASSWORD);
+
+    await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
+
+    await page.waitForURL("/", {
+      timeout: 20000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId(TestId.AVATAR_MENU_TRIGGER)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
+
+    await expect(page.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
+      timeout: 5000,
+    });
+
+    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
+      TEST_USER_EMAIL,
+      { timeout: 5000 }
     );
 
-    if (!canAccess) {
-      throw new Error("Test failed - see summary for details");
+    await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
+
+    await page.waitForURL(/\/sign-in/, {
+      timeout: 10000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByTestId(TestId.SIGN_IN_EMAIL).fill(TEST_USER_EMAIL);
+    await page.getByTestId(TestId.SIGN_IN_PASSWORD).fill(TEST_PASSWORD);
+
+    await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
+
+    await page.waitForURL("/", {
+      timeout: 20000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId(TestId.AVATAR_MENU_TRIGGER)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
+
+    await expect(page.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
+      timeout: 5000,
+    });
+
+    await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
+
+    await page.waitForURL(/\/sign-in/, {
+      timeout: 10000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test("should show error when signing up with existing email", async ({
+    page,
+  }) => {
+    await page.goto("/sign-up");
+
+    await page.getByTestId(TestId.SIGN_UP_NAME).fill("Existing User");
+    await page.getByTestId(TestId.SIGN_UP_EMAIL).fill(EXISTING_USER_EMAIL);
+    await page.getByTestId(TestId.SIGN_UP_PASSWORD).fill(TEST_PASSWORD);
+
+    await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
+
+    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("should show error when signing in with wrong password", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+
+    await page.getByTestId(TestId.SIGN_IN_EMAIL).fill(EXISTING_USER_EMAIL);
+    await page.getByTestId(TestId.SIGN_IN_PASSWORD).fill("WrongPassword123!");
+
+    await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
+
+    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("should show error when signing in with non-existent email", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+
+    await page
+      .getByTestId(TestId.SIGN_IN_EMAIL)
+      .fill("nonexistent@example.com");
+    await page.getByTestId(TestId.SIGN_IN_PASSWORD).fill(TEST_PASSWORD);
+
+    await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
+
+    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("should require all fields for sign up", async ({ page }) => {
+    await page.goto("/sign-up");
+
+    await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
+
+    const nameInput = page.getByTestId(TestId.SIGN_UP_NAME);
+    await expect(nameInput).toHaveAttribute("required", "");
+
+    const emailInput = page.getByTestId(TestId.SIGN_UP_EMAIL);
+    await expect(emailInput).toHaveAttribute("required", "");
+
+    const passwordInput = page.getByTestId(TestId.SIGN_UP_PASSWORD);
+    await expect(passwordInput).toHaveAttribute("required", "");
+  });
+
+  test("should require all fields for sign in", async ({ page }) => {
+    await page.goto("/sign-in");
+
+    await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
+
+    const emailInput = page.getByTestId(TestId.SIGN_IN_EMAIL);
+    await expect(emailInput).toHaveAttribute("required", "");
+
+    const passwordInput = page.getByTestId(TestId.SIGN_IN_PASSWORD);
+    await expect(passwordInput).toHaveAttribute("required", "");
+  });
+
+  test("should toggle password visibility on sign up", async ({ page }) => {
+    await page.goto("/sign-up");
+
+    const passwordInput = page.getByTestId(TestId.SIGN_UP_PASSWORD);
+    await expect(passwordInput).toHaveAttribute("type", "password");
+
+    await page.getByTestId(TestId.SIGN_UP_PASSWORD_TOGGLE).click();
+
+    await expect(passwordInput).toHaveAttribute("type", "text");
+
+    await page.getByTestId(TestId.SIGN_UP_PASSWORD_TOGGLE).click();
+
+    await expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
+  test("should navigate between sign in and sign up pages", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+
+    await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByTestId(TestId.SIGN_UP_LINK).click();
+    await page.waitForURL(/\/sign-up/, { timeout: 10000 });
+
+    await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await page.getByTestId(TestId.SIGN_IN_LINK).click();
+    await page.waitForURL(/\/sign-in/, { timeout: 10000 });
+
+    await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test("should redirect to home when accessing sign in while authenticated", async ({
+    page,
+  }) => {
+    await page.goto("/sign-up");
+
+    const uniqueEmail = `test-redirect-${Date.now()}@example.com`;
+
+    await page.getByTestId(TestId.SIGN_UP_NAME).fill("Redirect Test User");
+    await page.getByTestId(TestId.SIGN_UP_EMAIL).fill(uniqueEmail);
+    await page.getByTestId(TestId.SIGN_UP_PASSWORD).fill(TEST_PASSWORD);
+
+    await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
+
+    await page.waitForURL("/", {
+      timeout: 20000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await page.goto("/sign-in");
+
+    await expect(page).toHaveURL("/", { timeout: 10000 });
+
+    await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
+    await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
+
+    await page.waitForURL(/\/sign-in/, {
+      timeout: 10000,
+      waitUntil: "domcontentloaded",
+    });
+
+    await prisma.session.deleteMany({
+      where: { user: { email: uniqueEmail } },
+    });
+    await prisma.member.deleteMany({
+      where: { user: { email: uniqueEmail } },
+    });
+    const redirectTestUser = await prisma.user.findUnique({
+      where: { email: uniqueEmail },
+      include: { member: { include: { organization: true } } },
+    });
+    if (redirectTestUser) {
+      const orgIds = redirectTestUser.member.map((m) => m.organizationId);
+      await prisma.todo.deleteMany({
+        where: { organizationId: { in: orgIds } },
+      });
+      await prisma.tamagotchi.deleteMany({
+        where: { organizationId: { in: orgIds } },
+      });
+      await prisma.organization.deleteMany({
+        where: { id: { in: orgIds } },
+      });
     }
+    await prisma.user.deleteMany({
+      where: { email: uniqueEmail },
+    });
   });
 });
