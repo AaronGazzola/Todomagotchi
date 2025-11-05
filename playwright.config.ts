@@ -21,7 +21,6 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
   reporter: [["list"], ["./e2e/utils/consolidated-reporter.ts"]],
   outputDir: outputDir,
   use: {
@@ -32,8 +31,16 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
+      name: "invitations",
+      testMatch: "**/invitations.spec.ts",
       use: { ...devices["Desktop Chrome"] },
+      workers: 2,
+    },
+    {
+      name: "other-tests",
+      testIgnore: "**/invitations.spec.ts",
+      use: { ...devices["Desktop Chrome"] },
+      workers: 1,
     },
   ],
   webServer: {
