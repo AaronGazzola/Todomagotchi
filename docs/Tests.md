@@ -11,12 +11,11 @@ npm run test
 ## Test Index
 
 1. [Authentication Flow Tests](#1-authentication-flow-tests) - [e2e/auth.spec.ts](../e2e/auth.spec.ts) - `npm run test:e2e:auth`
-2. [Organization Management Tests](#2-organization-management-tests) - [e2e/organization.spec.ts](../e2e/organization.spec.ts) - `npm run test:e2e:org`
-3. [Organization Invitation Tests](#3-organization-invitation-tests) - [e2e/invitations.spec.ts](../e2e/invitations.spec.ts) - `npm run test:e2e:invitations`
-4. [Todo CRUD Operations Tests](#4-todo-crud-operations-tests) - [e2e/todos.spec.ts](../e2e/todos.spec.ts) - `npm run test:e2e:todos`
-5. [Tamagotchi Lifecycle Tests](#5-tamagotchi-lifecycle-tests) - [e2e/tamagotchi.spec.ts](../e2e/tamagotchi.spec.ts) - `npm run test:e2e:tamagotchi`
-6. [Tamagotchi Evolution Unit Tests](#6-tamagotchi-evolution-unit-tests) - [e2e/tamagotchi-unit.spec.ts](../e2e/tamagotchi-unit.spec.ts) - `npm run test:unit:tamagotchi`
-7. [Real-Time Multi-User Sync Tests](#7-real-time-multi-user-sync-tests) - [e2e/realtime-sync.spec.ts](../e2e/realtime-sync.spec.ts) - `npm run test:e2e:sync`
+2. [Organization Invitation Tests](#2-organization-invitation-tests) - [e2e/invitations.spec.ts](../e2e/invitations.spec.ts) - `npm run test:e2e:org` or `npm run test:e2e:invitations`
+3. [Todo CRUD Operations Tests](#3-todo-crud-operations-tests) - [e2e/todos.spec.ts](../e2e/todos.spec.ts) - `npm run test:e2e:todos`
+4. [Tamagotchi Lifecycle Tests](#4-tamagotchi-lifecycle-tests) - [e2e/tamagotchi.spec.ts](../e2e/tamagotchi.spec.ts) - `npm run test:e2e:tamagotchi`
+5. [Tamagotchi Evolution Unit Tests](#5-tamagotchi-evolution-unit-tests) - [e2e/tamagotchi-unit.spec.ts](../e2e/tamagotchi-unit.spec.ts) - `npm run test:unit:tamagotchi`
+6. [Real-Time Multi-User Sync Tests](#6-real-time-multi-user-sync-tests) - [e2e/realtime-sync.spec.ts](../e2e/realtime-sync.spec.ts) - `npm run test:e2e:sync`
 
 ---
 
@@ -26,6 +25,15 @@ npm run test
 **Command:** `npm run test:e2e:auth`
 
 Tests the Better-Auth integration covering sign-up, sign-in, sign-out, and session management.
+
+**Test Account:** The seed script creates a test account for sign-in tests:
+- Email: `e2e-test@example.com`
+- Password: `E2ETestPass123!`
+- Organization: E2E Test Organization
+
+**Main Test Cases:**
+1. **should sign up new user and sign out** - Creates a new user account, verifies home page redirect, checks avatar menu, and signs out
+2. **should sign in with existing user and sign out** - Signs in with the seeded test account, verifies home page redirect, checks avatar menu, and signs out
 
 ### Sign-Up Flow
 
@@ -147,319 +155,46 @@ Tests the Better-Auth integration covering sign-up, sign-in, sign-out, and sessi
 
 ---
 
-## 2. Organization Management Tests
-
-**File:** `e2e/organization.spec.ts`
-**Command:** `npm run test:e2e:org`
-
-Tests organization CRUD operations, member roles, organization switching, and data isolation.
-
-### Organization Creation
-
-- should create organization with custom name and slug
-  ✓ Organization record created with provided name and slug in database
-
-- should set creator as organization owner
-  ✓ Member record created with role: "owner" for creating user
-
-- should automatically create tamagotchi for new organization
-  ✓ Tamagotchi record exists with organizationId, age: 0, hunger: 7, feedCount: 0
-
-- should assign random species to tamagotchi (species0-9)
-  ✓ Species value is one of 10 available species
-
-- should set tamagotchi color to default #1f2937
-  ✓ Color field initialized to gray
-
-- should enforce unique constraint on (slug, createdBy)
-  ✓ Error thrown when user tries to create duplicate slug
-
-- should auto-set new organization as active
-  ✓ Session activeOrganizationId updated to new organization
-
-- should invalidate user-organizations query
-  ✓ React Query refetches organization list
-
-- should display success toast on creation
-  ✓ Toast appears with success message
-
-- should display error toast on creation failure
-  ✓ Toast appears with error message for validation failures
-
-### Organization Switching
-
-- should display list of user's organizations in dropdown
-  ✓ AvatarMenu shows all organizations where user is member
-
-- should change active organization context via setActiveOrganizationAction
-  ✓ Session activeOrganizationId updated in database
-
-- should update Zustand store with new activeOrganizationId
-  ✓ Store activeOrganizationId matches new selection
-
-- should invalidate todos query on organization switch
-  ✓ React Query refetches todos for new organization
-
-- should invalidate tamagotchi query on organization switch
-  ✓ React Query refetches tamagotchi for new organization
-
-- should invalidate user-organizations query
-  ✓ Organization list refreshed
-
-- should display only todos from active organization
-  ✓ TodoList filtered by activeOrganizationId
-
-- should display only tamagotchi from active organization
-  ✓ Tamagotchi component shows pet for activeOrganizationId
-
-- should persist active organization across sessions
-  ✓ Session activeOrganizationId loaded on page refresh
-
-### Tamagotchi Color Management
-
-- should update tamagotchi color for organization
-  ✓ Color field updated in tamagotchi record
-
-- should broadcast color change to all org members via SSE
-  ✓ sseBroadcaster.notifyTamagotchi() called
-
-- should invalidate tamagotchi query after color update
-  ✓ React Query cache refreshed
-
-- should display updated color immediately in UI
-  ✓ Tamagotchi sprite renders with new color
-
-- should persist color across sessions
-  ✓ Color retrieved correctly on page reload
-
-### Organization Data Reset
-
-- should display confirmation dialog before reset
-  ✓ Dialog appears with warning message
-
-- should delete all todos for active organization
-  ✓ Todo count becomes 0 after reset
-
-- should reset tamagotchi to egg state (age: 0)
-  ✓ Age field set to 0
-
-- should reset tamagotchi feedCount to 0
-  ✓ FeedCount field set to 0
-
-- should assign random species to tamagotchi on reset
-  ✓ Species changed to random value (species0-9)
-
-- should preserve tamagotchi color on reset
-  ✓ Color field unchanged after reset
-
-- should broadcast reset notification via SSE
-  ✓ All connected clients receive refresh signal
-
-- should invalidate todos and tamagotchi queries
-  ✓ React Query cache cleared for both
-
-- should not reset if user cancels confirmation
-  ✓ Data unchanged when dialog dismissed
-
-### Organization Member Roles
-
-- should assign "owner" role to organization creator
-  ✓ Member record has role: "owner"
-
-- should allow "owner" to send invitations
-  ✓ sendInvitationsAction succeeds for owner
-
-- should allow "admin" to send invitations
-  ✓ sendInvitationsAction succeeds for admin
-
-- should prevent "member" from sending invitations
-  ✓ sendInvitationsAction throws authorization error
-
-- should display role in organization member list
-  ✓ Member role visible in UI
-
-### Organization Data Isolation
-
-- should filter todos by organizationId
-  ✓ getTodosAction returns only todos for active organization
-
-- should enforce organizationId check on todo updates
-  ✓ toggleTodoAction throws error if todo not in active org
-
-- should enforce organizationId check on todo deletes
-  ✓ deleteTodoAction throws error if todo not in active org
-
-- should enforce unique tamagotchi per organization
-  ✓ Database constraint prevents multiple tamagotchis per org
-
-- should allow same todo text in different organizations
-  ✓ Two todos with identical text can exist in different orgs
-
----
-
-## 3. Organization Invitation Tests
+## 2. Organization Invitation Tests
 
 **File:** `e2e/invitations.spec.ts`
-**Command:** `npm run test:e2e:invitations`
+**Command:** `npm run test:e2e:org` or `npm run test:e2e:invitations`
 
-Tests organization invitation lifecycle including sending, receiving, accepting, and declining invitations.
+Tests multi-user organization invitation flow including sending invitations, real-time notification delivery via SSE, accepting/declining invitations, organization switching, and data isolation verification.
 
-### Sending Invitations
+### Full Invitation Flow with Real-Time Updates
 
-- should allow owner to send invitation with member role
-  ✓ Invitation record created with role: "member", status: "pending"
-
-- should allow owner to send invitation with admin role
-  ✓ Invitation record created with role: "admin", status: "pending"
-
-- should allow admin to send invitations
-  ✓ sendInvitationsAction succeeds when member role is "admin"
-
-- should prevent member from sending invitations
-  ✓ sendInvitationsAction throws "Only organization admins and owners can send invitations"
-
-- should set expiration date to 7 days from creation
-  ✓ expiresAt field set to Date.now() + 7 days
-
-- should validate email format with regex
-  ✓ Invalid email rejected with "Invalid email format" error
-
-- should prevent duplicate pending invitations to same email
-  ✓ Error thrown when pending invitation already exists for email
-
-- should prevent inviting existing organization members
-  ✓ Error thrown when user is already a member
-
-- should support sending multiple invitations at once
-  ✓ sendInvitationsAction processes array of emails
-
-- should return success/error for each email in batch
-  ✓ InvitationResult array returned with per-email status
-
-- should broadcast invitation to recipient's email via SSE
-  ✓ sseBroadcaster.notifyInvitation(email) called
-
-- should display success toast with invitation count
-  ✓ Toast shows "X invitations sent successfully"
-
-- should display error toast for validation failures
-  ✓ Toast shows specific validation error messages
-
-### Receiving Invitations
-
-- should display pending invitations for user's email
-  ✓ getPendingInvitationsForUserAction filters by email and status: "pending"
-
-- should show organization name in invitation
-  ✓ Invitation includes organization relation
-
-- should show inviter name in invitation
-  ✓ Invitation includes inviter relation
-
-- should show role (member/admin) in invitation
-  ✓ Invitation displays role field
-
-- should display invitation via toast notification
-  ✓ InvitationToasts component shows toast for each pending invitation
-
-- should include accept and decline buttons in toast
-  ✓ Both buttons visible and functional
-
-- should not display expired invitations
-  ✓ Invitations past expiresAt filtered out of query
-
-- should not display rejected invitations
-  ✓ Invitations with status: "rejected" filtered out
-
-- should not display duplicate toasts for same invitation
-  ✓ displayedInvitationsRef prevents duplicate rendering
-
-### Accepting Invitations
-
-- should create member record with correct role
-  ✓ Member record created with role from invitation
-
-- should update invitation status to "accepted"
-  ✓ acceptInvitationAction calls Better-Auth method
-
-- should add organization to user's organization list
-  ✓ getUserOrganizationsAction returns new organization
-
-- should set accepted organization as active
-  ✓ Session activeOrganizationId updated to new organization
-
-- should invalidate user-organizations query
-  ✓ React Query refetches organization list
-
-- should invalidate pending-invitations query
-  ✓ React Query refetches invitation list
-
-- should invalidate todos query
-  ✓ Todos loaded for new active organization
-
-- should invalidate tamagotchi query
-  ✓ Tamagotchi loaded for new active organization
-
-- should display success toast on acceptance
-  ✓ Toast appears confirming invitation accepted
-
-- should remove invitation from toast list
-  ✓ Toast dismissed after acceptance
+- should complete full invitation flow with real-time updates and org switching
+  ✓ User A signs up and creates organization
+  ✓ User A opens avatar menu and clicks invite users button
+  ✓ User A enters User B's email and selects member role
+  ✓ User A sends invitation and sees success toast
+  ✓ User B signs up with invited email address
+  ✓ User B receives invitation toast in real-time (within 15 seconds via SSE)
+  ✓ Invitation toast displays organization name and role
+  ✓ User B accepts invitation and sees success toast
+  ✓ User B's organization selector shows at least 2 organizations
+  ✓ User B switches to User A's organization
+  ✓ User A creates todo in shared organization
+  ✓ User B can see User A's todo after page reload
+  ✓ User B switches back to own organization
+  ✓ User B does not see User A's todos (data isolation verified)
+  ✓ Browser contexts cleaned up properly
 
 ### Declining Invitations
 
-- should update invitation status to "rejected"
-  ✓ declineInvitationAction updates status field
-
-- should not create member record
-  ✓ No member record exists for declined invitation
-
-- should remove invitation from pending list
-  ✓ Invitation no longer returned by getPendingInvitationsForUserAction
-
-- should invalidate pending-invitations query
-  ✓ React Query cache updated
-
-- should display confirmation toast
-  ✓ Toast appears confirming decline
-
-- should remove invitation from toast list
-  ✓ Toast dismissed after declining
-
-### Invitation Expiration
-
-- should filter out expired invitations in pending query
-  ✓ Invitations with expiresAt < Date.now() not returned
-
-- should prevent accepting expired invitations
-  ✓ acceptInvitationAction throws error for expired invitation
-
-- should allow cleanup of expired invitations
-  ✓ Expired invitations can be deleted from database
-
-### Real-Time Invitation Notifications
-
-- should notify recipient via SSE when invitation sent
-  ✓ EventSource connection receives invitation event
-
-- should display toast immediately when invitation received
-  ✓ Toast appears via useTodosSSE() hook
-
-- should register SSE client by recipient email
-  ✓ SSEBroadcaster adds client to invitationClients map
-
-- should broadcast to correct email only
-  ✓ Only recipient's email receives notification
-
-- should update pending list in real-time
-  ✓ Invitation list refreshes via SSE without manual action
-
-- should reconnect SSE on connection loss
-  ✓ EventSource reconnects after 5 seconds on error
+- should allow user to decline invitation
+  ✓ User A signs up and sends invitation to User B
+  ✓ User B signs up and receives invitation toast in real-time
+  ✓ User B declines invitation
+  ✓ Invitation toast disappears
+  ✓ User B's organization count remains at 2 (own org + "Add New Organization" option)
+  ✓ No member record created for declined invitation
+  ✓ Test data cleaned up (sessions, invitations, members, todos, tamagotchi, organizations, users)
 
 ---
 
-## 4. Todo CRUD Operations Tests
+## 3. Todo CRUD Operations Tests
 
 **File:** `e2e/todos.spec.ts`
 **Command:** `npm run test:e2e:todos`
@@ -643,7 +378,7 @@ Tests todo create, read, update, delete operations with organization isolation a
 
 ---
 
-## 5. Tamagotchi Lifecycle Tests
+## 4. Tamagotchi Lifecycle Tests
 
 **File:** `e2e/tamagotchi.spec.ts`
 **Command:** `npm run test:e2e:tamagotchi`
@@ -832,7 +567,7 @@ Tests tamagotchi creation, feeding, evolution, hunger decay, sprites, and real-t
 
 ---
 
-## 6. Tamagotchi Evolution Unit Tests
+## 5. Tamagotchi Evolution Unit Tests
 
 **File:** `e2e/tamagotchi-unit.spec.ts`
 **Command:** `npm run test:unit:tamagotchi`
@@ -964,7 +699,7 @@ Unit tests for tamagotchi algorithms using service role client injection and see
 
 ---
 
-## 7. Real-Time Multi-User Sync Tests
+## 6. Real-Time Multi-User Sync Tests
 
 **File:** `e2e/realtime-sync.spec.ts`
 **Command:** `npm run test:e2e:sync`
@@ -1222,20 +957,18 @@ test.afterEach(async () => {
 Recommended execution order to minimize dependencies:
 
 1. **Authentication Tests** - Creates sessions for other tests
-2. **Organization Management Tests** - Sets up organization context
-3. **Organization Invitation Tests** - Tests invitation workflows
-4. **Todo CRUD Tests** - Tests todo operations
-5. **Tamagotchi Lifecycle Tests** - Tests tamagotchi UI and workflows
-6. **Tamagotchi Unit Tests** - Isolated algorithm tests
-7. **Real-Time Sync Tests** - Most complex, depends on all features
+2. **Organization Invitation Tests** - Tests invitation workflows and organization collaboration
+3. **Todo CRUD Tests** - Tests todo operations
+4. **Tamagotchi Lifecycle Tests** - Tests tamagotchi UI and workflows
+5. **Tamagotchi Unit Tests** - Isolated algorithm tests
+6. **Real-Time Sync Tests** - Most complex, depends on all features
 
 ---
 
 ## Coverage Goals
 
 - **Authentication**: 100% coverage of sign-up, sign-in, sign-out, session management, route protection
-- **Organizations**: 100% coverage of CRUD operations, role management, switching, data isolation
-- **Invitations**: 100% coverage of send, receive, accept, decline, validation, expiration, real-time notifications
+- **Invitations**: 100% coverage of multi-user invitation flows, real-time notifications via SSE, accept/decline workflows, organization switching, data isolation verification
 - **Todos**: 100% coverage of CRUD operations, organization isolation, real-time sync, tamagotchi integration
 - **Tamagotchi**: 100% coverage of lifecycle, feeding, growth, evolution, decay, sprites, real-time sync
 - **Unit Tests**: 100% coverage of evolution algorithms, hunger decay, sprite mapping, random species selection

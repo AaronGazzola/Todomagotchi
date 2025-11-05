@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 if (!process.env.TEST_RUN_ID) {
   process.env.TEST_RUN_ID = new Date()
@@ -18,11 +21,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [["list"], ["./e2e/utils/consolidated-reporter.ts"]],
   outputDir: outputDir,
   use: {
-    baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "off",
@@ -35,7 +38,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000",
+    url: process.env.BETTER_AUTH_URL || "http://localhost:3001",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

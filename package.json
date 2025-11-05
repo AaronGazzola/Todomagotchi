@@ -13,15 +13,17 @@
     "db:reset": "prisma migrate reset",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
+    "seed": "prisma migrate reset",
     "test": "playwright test",
     "test:auth": "playwright test e2e/auth.spec.ts",
     "test:auth:headed": "playwright test e2e/auth.spec.ts --headed",
     "test:e2e:auth": "playwright test e2e/auth.spec.ts",
-    "test:e2e:org": "playwright test e2e/organization.spec.ts",
+    "test:e2e:org": "playwright test e2e/invitations.spec.ts",
     "test:e2e:todo": "playwright test e2e/todo.spec.ts",
     "test:e2e:tamagotchi": "playwright test e2e/tamagotchi.spec.ts",
     "test:unit:tamagotchi": "playwright test __tests__/tamagotchi-logic.test.ts",
     "test:e2e:invitations": "playwright test e2e/invitations.spec.ts",
+    "test:e2e:invitations:headed": "playwright test e2e/invitations.spec.ts --headed",
     "test:e2e:sync": "playwright test e2e/realtime-sync.spec.ts"
   },
   "prisma": {

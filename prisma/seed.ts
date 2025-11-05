@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
+import { auth } from "../lib/auth";
 
 const prisma = new PrismaClient();
+
+const E2E_TEST_PASSWORD = "E2ETestPass123!";
 
 async function main() {
   console.log("Seeding database...");
@@ -16,16 +19,20 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { id: "e2e-test-user-id" },
-    update: {},
-    create: {
-      id: "e2e-test-user-id",
-      email: "e2e-test@example.com",
-      name: "E2E Test User",
-      emailVerified: true,
-    },
+  let e2eTestUser = await prisma.user.findUnique({
+    where: { email: "e2e-test@example.com" },
   });
+
+  if (!e2eTestUser) {
+    const result = await auth.api.signUpEmail({
+      body: {
+        email: "e2e-test@example.com",
+        password: E2E_TEST_PASSWORD,
+        name: "E2E Test User",
+      },
+    });
+    e2eTestUser = result.user;
+  }
 
   const org1 = await prisma.organization.upsert({
     where: { id: "test-org-1" },
@@ -90,13 +97,13 @@ async function main() {
   await prisma.member.upsert({
     where: {
       userId_organizationId: {
-        userId: "e2e-test-user-id",
+        userId: e2eTestUser.id,
         organizationId: e2eOrg.id,
       },
     },
     update: {},
     create: {
-      userId: "e2e-test-user-id",
+      userId: e2eTestUser.id,
       organizationId: e2eOrg.id,
       role: "owner",
     },
@@ -190,7 +197,7 @@ async function main() {
   console.log("2. Work Projects - species7, age 0 (egg), 5 feeds, green tamagotchi");
   console.log("\nE2E Test Account:");
   console.log("Email: e2e-test@example.com");
-  console.log("Password: (for automated tests only)");
+  console.log(`Password: ${E2E_TEST_PASSWORD}`);
   console.log("Organization: E2E Test Organization - species1, age 0 (egg), purple tamagotchi");
 }
 

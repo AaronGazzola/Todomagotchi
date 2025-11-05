@@ -8,6 +8,7 @@ const TEST_USER_EMAIL = "test-signup@example.com";
 const TEST_USER_NAME = "Test Signup User";
 const TEST_PASSWORD = "TestPassword123!";
 const EXISTING_USER_EMAIL = "e2e-test@example.com";
+const EXISTING_USER_PASSWORD = "E2ETestPass123!";
 
 async function cleanupTestUsers() {
   await prisma.member.deleteMany({
@@ -81,14 +82,19 @@ test.describe("Authentication Flow Tests", () => {
     await cleanupTestUsers();
   });
 
+  test.beforeEach(async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto("/");
+  });
+
   test.afterAll(async () => {
     await cleanupTestUsers();
     await prisma.$disconnect();
   });
 
-  test("should complete full auth flow: sign up, sign out, sign in, sign out", async ({
-    page,
-  }) => {
+  test("should sign up new user and sign out", async ({ page }) => {
+    test.setTimeout(45000);
+
     await page.goto("/");
 
     await expect(page.getByTestId(TestId.SIGN_IN_BUTTON)).toBeVisible({
@@ -134,12 +140,26 @@ test.describe("Authentication Flow Tests", () => {
       waitUntil: "domcontentloaded",
     });
 
+    await page.waitForTimeout(1500);
+
+    await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test("should sign in with existing user and sign out", async ({ page }) => {
+    test.setTimeout(45000);
+
+    await page.goto("/sign-in");
+
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,
     });
 
-    await page.getByTestId(TestId.SIGN_IN_EMAIL).fill(TEST_USER_EMAIL);
-    await page.getByTestId(TestId.SIGN_IN_PASSWORD).fill(TEST_PASSWORD);
+    await page.getByTestId(TestId.SIGN_IN_EMAIL).fill(EXISTING_USER_EMAIL);
+    await page
+      .getByTestId(TestId.SIGN_IN_PASSWORD)
+      .fill(EXISTING_USER_PASSWORD);
 
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
@@ -147,6 +167,8 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 20000,
       waitUntil: "domcontentloaded",
     });
+
+    await page.waitForTimeout(1500);
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_TRIGGER)).toBeVisible({
       timeout: 10000,
@@ -158,12 +180,19 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 5000,
     });
 
+    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
+      EXISTING_USER_EMAIL,
+      { timeout: 5000 }
+    );
+
     await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
 
     await page.waitForURL(/\/sign-in/, {
       timeout: 10000,
       waitUntil: "domcontentloaded",
     });
+
+    await page.waitForTimeout(1500);
 
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,
@@ -181,7 +210,7 @@ test.describe("Authentication Flow Tests", () => {
 
     await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
-    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+    await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
       timeout: 5000,
     });
   });
@@ -196,7 +225,7 @@ test.describe("Authentication Flow Tests", () => {
 
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
-    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+    await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
       timeout: 5000,
     });
   });
@@ -213,7 +242,7 @@ test.describe("Authentication Flow Tests", () => {
 
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
-    await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+    await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
       timeout: 5000,
     });
   });

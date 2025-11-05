@@ -11,6 +11,7 @@ import {
 } from "./AvatarMenu.hooks";
 import { PendingInvitation } from "./AvatarMenu.types";
 import { useInvitationSSE } from "./AvatarMenu.sse";
+import { TestId } from "@/test.types";
 
 export function InvitationToasts() {
   useInvitationSSE();
@@ -31,7 +32,10 @@ export function InvitationToasts() {
 
       toast.custom(
         (t) => (
-          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-lg min-w-[320px] max-w-[420px]">
+          <div
+            className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-lg min-w-[320px] max-w-[420px]"
+            data-testid={TestId.INVITATION_TOAST}
+          >
             <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-blue-900 text-sm">
@@ -50,6 +54,7 @@ export function InvitationToasts() {
                     toast.dismiss(t);
                   }}
                   className="flex-1"
+                  data-testid={TestId.INVITATION_ACCEPT_BUTTON}
                 >
                   Accept
                 </Button>
@@ -61,6 +66,7 @@ export function InvitationToasts() {
                     toast.dismiss(t);
                   }}
                   className="flex-1"
+                  data-testid={TestId.INVITATION_DECLINE_BUTTON}
                 >
                   Decline
                 </Button>

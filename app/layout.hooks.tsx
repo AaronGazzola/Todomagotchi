@@ -41,19 +41,16 @@ export const useSignOut = () => {
       await signOut();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      showSuccessToast("Signed out successfully");
+      queryClient.invalidateQueries();
       reset();
       router.push(configuration.paths.signIn);
-      showSuccessToast("Signed out successfully");
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to sign out", "Sign Out Failed");
-      router.push(configuration.paths.signIn);
-      reset();
-    },
-    onSettled: () => {
       queryClient.invalidateQueries();
       reset();
+      router.push(configuration.paths.signIn);
     },
   });
 };

@@ -70,7 +70,7 @@ class ConsolidatedReporter implements Reporter {
 
   onEnd(result: FullResult) {
     const passed = this.testResults.filter((t) => t.status === "passed").length;
-    const failed = this.testResults.filter((t) => t.status === "failed").length;
+    const failed = this.testResults.filter((t) => t.status !== "passed" && t.status !== "skipped").length;
     const skipped = this.testResults.filter(
       (t) => t.status === "skipped"
     ).length;
@@ -133,7 +133,7 @@ class ConsolidatedReporter implements Reporter {
     if (report.summary.failed > 0) {
       lines.push(`## Failed Tests`, ``);
       report.tests
-        .filter((t: any) => t.status === "failed")
+        .filter((t: any) => t.status !== "passed" && t.status !== "skipped")
         .forEach((test: any) => {
           lines.push(`### ${test.title}`, ``);
           lines.push(`**File:** ${test.file}`);
@@ -147,7 +147,7 @@ class ConsolidatedReporter implements Reporter {
           if (test.screenshots?.length > 0) {
             lines.push(`**Screenshots:**`);
             test.screenshots.forEach((s: string) => {
-              lines.push(`- ${s}`);
+              lines.push(`- [${s}](${s})`);
             });
             lines.push(``);
           }
@@ -155,7 +155,7 @@ class ConsolidatedReporter implements Reporter {
           if (test.videos?.length > 0) {
             lines.push(`**Videos:**`);
             test.videos.forEach((v: string) => {
-              lines.push(`- ${v}`);
+              lines.push(`- [${v}](${v})`);
             });
             lines.push(``);
           }
@@ -163,7 +163,7 @@ class ConsolidatedReporter implements Reporter {
           if (test.traces?.length > 0) {
             lines.push(`**Traces:**`);
             test.traces.forEach((t: string) => {
-              lines.push(`- ${t}`);
+              lines.push(`- [${t}](${t})`);
             });
             lines.push(``);
           }

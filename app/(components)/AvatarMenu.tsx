@@ -251,6 +251,7 @@ export function AvatarMenu() {
                 onClick={() => setShowInviteDialog(true)}
                 className="w-full"
                 disabled={!activeOrganizationId}
+                data-testid={TestId.INVITE_USERS_BUTTON}
               >
                 <Mail className="h-4 w-4 mr-2" />
                 Invite Users
@@ -321,7 +322,7 @@ export function AvatarMenu() {
         open={showInviteDialog}
         onOpenChange={setShowInviteDialog}
       >
-        <DialogContent>
+        <DialogContent data-testid={TestId.INVITE_DIALOG}>
           <DialogHeader>
             <DialogTitle>Invite Users to {activeOrganization?.name}</DialogTitle>
           </DialogHeader>
@@ -337,6 +338,7 @@ export function AvatarMenu() {
                     handleSendInvitations();
                   }
                 }}
+                data-testid={TestId.INVITE_EMAIL_INPUT}
               />
               <p className="text-xs text-muted-foreground">
                 Separate multiple emails with commas
@@ -349,6 +351,7 @@ export function AvatarMenu() {
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                data-testid={TestId.INVITE_ROLE_SELECT}
               >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
@@ -359,12 +362,14 @@ export function AvatarMenu() {
             <Button
               variant="outline"
               onClick={() => setShowInviteDialog(false)}
+              data-testid={TestId.INVITE_CANCEL_BUTTON}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSendInvitations}
               disabled={!inviteEmails.trim() || isSendingInvites}
+              data-testid={TestId.INVITE_SEND_BUTTON}
             >
               {isSendingInvites ? "Sending..." : "Send Invitations"}
             </Button>
