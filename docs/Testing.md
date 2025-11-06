@@ -2,23 +2,1139 @@
 
 This document provides comprehensive instructions for writing tests using a universal testing methodology.
 
+## Table of Contents
+
+1. [Testing Architecture](#testing-architecture)
+2. [Testing Rules](#testing-rules)
+3. [Data Attribute System](#data-attribute-system)
+4. [Database Testing Patterns](#database-testing-patterns)
+5. [Test Implementation Patterns](#test-implementation-patterns)
+6. [Test Execution](#test-execution)
+7. [Test Results and Reporting](#test-results-and-reporting)
+8. [Adding New Tests](#adding-new-tests)
+9. [Tests.md Documentation Format](#testsmd-documentation-format)
+
+## Testing Architecture
+
+### Core Technologies
+
+- **Playwright** - End-to-end testing framework
+- **PrismaClient** - Direct database access for setup/teardown
+- **TypeScript** - Type-safe test implementation
+- **Custom Reporters** - Consolidated and minimal reporters for test output
+
+### File Structure
+
+```
+project/
+├── e2e/
+│   ├── feature1.spec.ts
+│   ├── feature2.spec.ts
+│   └── utils/
+│       ├── test-cleanup.ts
+│       └── consolidated-reporter.ts
+├── test.types.ts
+├── playwright.config.ts
+└── docs/
+    ├── Testing.md
+    └── Tests.md
+```
+
+### Playwright Configuration
+
+Key configuration patterns:
+
+- **Test Directory:** `./e2e`
+- **Execution:** Fully parallel
+- **Retries:** 2 in CI, 0 locally
+- **Workers:** 1 in CI, optimal locally
+- **Screenshots:** Only on failure
+- **Traces:** On first retry
+- **Reporters:** List + Consolidated reporter
+- **Output:** Timestamped directories
+
+## Testing Rules
+
+### Rule 1: Synchronize Test Changes with Documentation
+
+Every time a test is changed, the corresponding test in `docs/Tests.md` **must** be updated to match.
+
+**Example:**
+
+```typescript
+test("should perform expected action", async ({ page }) => {
+  ...
+});
+```
+
+Must have corresponding entry in Tests.md:
+
+```md
+- should perform expected action
+  ✓ Expected result description
+```
+
+### Rule 2: Always Prefer Data Attributes
+
+Always prefer `data-testid` attributes to select HTML elements in e2e tests.
+
+**Correct:**
+
+```typescript
+await page.getByTestId(TestId.ELEMENT_ID).fill(value);
+```
+
+**Incorrect:**
+
+```typescript
+await page.locator('input[type="email"]').fill(value);
+await page.getByRole("textbox", { name: "Label" }).fill(value);
+await page.locator(".css-class").fill(value);
+```
+
+**Exception:** Use role-based selectors only for generic elements like alerts:
+
+```typescript
+await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible();
+```
+
+### Rule 3: Share Data Attribute Values
+
+Data attribute values **must** be imported into the test and the component from the shared `test.types.ts` file.
+
+**In Component:**
+
+```typescript
+import { TestId } from "@/test.types";
+
+export function MyComponent() {
+  return (
+    <form>
+      <Input
+        data-testid={TestId.INPUT_FIELD}
+        type="email"
+      />
+      <Button data-testid={TestId.SUBMIT_BUTTON}>Submit</Button>
+    </form>
+  );
+}
+```
+
+**In Test:**
+
+```typescript
+import { TestId } from "../test.types";
+
+test("should submit form", async ({ page }) => {
+  await page.getByTestId(TestId.INPUT_FIELD).fill("value");
+  await page.getByTestId(TestId.SUBMIT_BUTTON).click();
+});
+```
+
+### Rule 3a: Use State Data Attributes for Dynamic UI States
+
+When an element has different states that need to be tested (e.g., edit mode vs view mode, expanded vs collapsed), use the `data-state` attribute in addition to `data-testid`.
+
+**Pattern:**
+
+- `data-testid` identifies the element
+- `data-state` identifies the current state of the element
+
+**In Component:**
+
+```typescript
+import { TestId } from "@/test.types";
+
+export function MyComponent() {
+  const [isEditing, setIsEditing] = useState(false);
+
+  return (
+    <div
+      data-testid={TestId.FORM_CONTAINER}
+      data-state={isEditing ? "editing" : "viewing"}
+    >
+      <Button
+        data-testid={TestId.EDIT_BUTTON}
+        data-state={isEditing ? "editing" : "viewing"}
+        onClick={() => setIsEditing(!isEditing)}
+      >
+        {isEditing ? "Cancel" : "Edit"}
+      </Button>
+      {isEditing ? <EditForm /> : <ViewContent />}
+    </div>
+  );
+}
+```
+
+**In Test:**
+
+```typescript
+import { TestId } from "../test.types";
+
+test("should toggle edit mode", async ({ page }) => {
+  await page.goto("/page");
+
+  const formContainer = page.locator(
+    `[data-testid="${TestId.FORM_CONTAINER}"][data-state="viewing"]`
+  );
+  await expect(formContainer).toBeVisible({ timeout: 10000 });
+
+  await page.getByTestId(TestId.EDIT_BUTTON).click();
+
+  const editingContainer = page.locator(
+    `[data-testid="${TestId.FORM_CONTAINER}"][data-state="editing"]`
+  );
+  await expect(editingContainer).toBeVisible({ timeout: 10000 });
+});
+```
+
+**In Test Utilities:**
+
+```typescript
+export async function waitForFormState(
+  page: Page,
+  isEditing: boolean,
+  timeout: number = 10000
+): Promise<boolean> {
+  try {
+    const expectedState = isEditing ? "editing" : "viewing";
+    await page.waitForSelector(
+      `[data-testid="${TestId.FORM_CONTAINER}"][data-state="${expectedState}"]`,
+      { timeout, state: "visible" }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+```
+
+**Benefits:**
+
+- Eliminates reliance on dynamic text content (which may change with UI updates)
+- Provides explicit state verification in tests
+- More reliable than text-based selectors
+- Works across different languages/localizations
+- Makes test intent clear and self-documenting
+
+### Rule 4: Always Prefer Timeouts Over Hard-Coded Waits
+
+Always prefer explicit timeout parameters over hard-coded wait periods.
+
+**Correct:**
+
+```typescript
+await expect(page.getByTestId(TestId.ELEMENT)).toBeVisible({
+  timeout: 10000,
+});
+
+await page.waitForURL("/path", {
+  timeout: 10000,
+  waitUntil: "domcontentloaded",
+});
+```
+
+**Incorrect:**
+
+```typescript
+await page.waitForTimeout(5000);
+await new Promise((resolve) => setTimeout(resolve, 5000));
+```
+
+**Timeout Guidelines:**
+
+- **All Operations:** 10 seconds (10000ms)
+  - UI Elements visibility checks
+  - Navigation and URL changes
+  - Complex operations
+  - Database operations
+
+### Rule 5: Isolate Test Data
+
+Each test must clean up its own data and not interfere with other tests.
+
+**Pattern:**
+
+```typescript
+test.beforeAll(async () => {
+  await cleanupTestData();
+});
+
+test.afterAll(async () => {
+  await cleanupTestData();
+  await prisma.$disconnect();
+});
+```
+
+### Rule 6: Use Descriptive Test Names
+
+Test names should describe the behavior being tested, starting with "should".
+
+**Correct:**
+
+```typescript
+test("should create new record with valid data", async ({ page }) => {
+  ...
+});
+
+test("should show error with invalid input", async ({ page }) => {
+  ...
+});
+```
+
+**Incorrect:**
+
+```typescript
+test("creation", async ({ page }) => {
+  ...
+});
+
+test("test feature", async ({ page }) => {
+  ...
+});
+```
+
+## Data Attribute System
+
+### TestId Enum
+
+**File:** `test.types.ts`
+
+The `TestId` enum contains all data-testid values used throughout the application.
+
+**Example Structure:**
+
+```typescript
+export enum TestId {
+  FORM_EMAIL_INPUT = "form-email-input",
+  FORM_PASSWORD_INPUT = "form-password-input",
+  FORM_SUBMIT_BUTTON = "form-submit-button",
+  MENU_TRIGGER = "menu-trigger",
+  MENU_CONTENT = "menu-content",
+  ITEM_CHECKBOX = "item-checkbox",
+  ITEM_DELETE_BUTTON = "item-delete-button",
+  TOAST_SUCCESS = "toast-success",
+  TOAST_ERROR = "toast-error",
+}
+```
+
+### Adding New TestId Values
+
+When adding new interactive elements that need testing:
+
+1. Add the TestId value to `test.types.ts`:
+
+```typescript
+export enum TestId {
+  ...
+  NEW_ELEMENT = "new-element",
+}
+```
+
+2. Apply the data-testid in the component:
+
+```typescript
+import { TestId } from "@/test.types";
+
+<button data-testid={TestId.NEW_ELEMENT}>Click Me</button>;
+```
+
+3. Use it in tests:
+
+```typescript
+import { TestId } from "../test.types";
+
+await page.getByTestId(TestId.NEW_ELEMENT).click();
+```
+
+## Database Testing Patterns
+
+### Direct PrismaClient Usage
+
+Tests use direct PrismaClient instantiation for database access:
+
+```typescript
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+```
+
+**Important:**
+
+- Create one PrismaClient instance per test file (not per test)
+- Call `prisma.$disconnect()` only in `test.afterAll()` hook
+- Do not disconnect in individual tests or beforeAll
+
+### Centralized Test Utilities
+
+**File:** `e2e/utils/test-cleanup.ts`
+
+Reusable cleanup functions for common test scenarios:
+
+**`cleanupTestData(userEmails: string[])`**
+
+Deletes test data for multiple users in one operation:
+
+```typescript
+import { cleanupTestData } from "./e2e/utils/test-cleanup";
+
+await cleanupTestData(["user1@example.com", "user2@example.com"]);
+```
+
+**What it does:**
+
+1. Finds all users by email array
+2. Finds all member records for those users
+3. Deletes todos for all related organizations
+4. Deletes invitations by email OR inviter ID
+5. Batch operation for efficiency
+
+**`resetTamagotchiState(organizationId: string)`**
+
+Resets a tamagotchi to initial state:
+
+```typescript
+import { resetTamagotchiState } from "./e2e/utils/test-cleanup";
+
+await resetTamagotchiState(orgId);
+```
+
+**Resets to:**
+
+- hunger: 7
+- happiness: 100
+- wasteCount: 0
+- age: 0
+- feedCount: 0
+- All timestamps to current date
+
+**When to Use Utilities vs Inline Cleanup:**
+
+Use centralized utilities when:
+
+- Cleaning up common test data (users, standard records)
+- Need batch operations across multiple tests
+- Reset patterns are reusable
+
+Use inline cleanup when:
+
+- Test creates unique data with `Date.now()` identifiers
+- Complex cascade specific to one test
+- Test-specific cleanup logic required
+
+### Cleanup Function Pattern
+
+Cleanup functions follow a cascade deletion pattern to handle foreign key relationships:
+
+```typescript
+async function cleanupTestData() {
+  await prisma.childRecord.deleteMany({
+    where: {
+      parent: {
+        email: {
+          in: [TEST_EMAIL],
+        },
+      },
+    },
+  });
+
+  await prisma.session.deleteMany({
+    where: {
+      user: {
+        email: {
+          in: [TEST_EMAIL],
+        },
+      },
+    },
+  });
+
+  const testUser = await prisma.user.findUnique({
+    where: { email: TEST_EMAIL },
+    include: { relatedRecords: true },
+  });
+
+  if (testUser) {
+    const recordIds = testUser.relatedRecords.map((r) => r.id);
+
+    await prisma.dependentRecord.deleteMany({
+      where: { parentId: { in: recordIds } },
+    });
+
+    await prisma.relatedRecord.deleteMany({
+      where: { id: { in: recordIds } },
+    });
+  }
+
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        in: [TEST_EMAIL],
+      },
+    },
+  });
+}
+```
+
+### Cleanup Order
+
+The order matters due to foreign key constraints. Delete in this order:
+
+1. **Child records** that reference parent records
+2. **Session records** associated with users
+3. Query to find related records
+4. **Dependent records** that reference related entities
+5. **Related records**
+6. **Parent records**
+
+### Test Lifecycle Hooks
+
+```typescript
+test.describe("Feature Tests", () => {
+  test.beforeAll(async () => {
+    await cleanupTestData();
+  });
+
+  test.afterAll(async () => {
+    await cleanupTestData();
+    await prisma.$disconnect();
+  });
+
+  test("should perform expected action", async ({ page }) => {
+    ...
+  });
+});
+```
+
+### Test-Specific Cleanup
+
+For tests that create unique data, clean up inline:
+
+```typescript
+test("should handle unique test case", async ({ page }) => {
+  const uniqueIdentifier = `test-${Date.now()}@example.com`;
+
+  await prisma.session.deleteMany({
+    where: { user: { email: uniqueIdentifier } },
+  });
+
+  const testRecord = await prisma.user.findUnique({
+    where: { email: uniqueIdentifier },
+    include: { relatedRecords: true },
+  });
+
+  if (testRecord) {
+    const ids = testRecord.relatedRecords.map((r) => r.id);
+    await prisma.dependentRecord.deleteMany({
+      where: { parentId: { in: ids } },
+    });
+    await prisma.relatedRecord.deleteMany({
+      where: { id: { in: ids } },
+    });
+  }
+
+  await prisma.user.deleteMany({
+    where: { email: uniqueIdentifier },
+  });
+});
+```
+
+## Test Implementation Patterns
+
+### Test Structure
+
+```typescript
+import { test, expect } from "@playwright/test";
+import { TestId } from "../test.types";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+test.describe("Feature Name Tests", () => {
+  test.beforeAll(async () => {
+    await cleanupFunction();
+  });
+
+  test.afterAll(async () => {
+    await cleanupFunction();
+    await prisma.$disconnect();
+  });
+
+  test("should perform expected behavior", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId(TestId.ELEMENT).click();
+    await expect(page.getByTestId(TestId.RESULT)).toBeVisible({
+      timeout: 10000,
+    });
+  });
+});
+```
+
+### Navigation Patterns
+
+**Direct Navigation:**
+
+```typescript
+await page.goto("/");
+await page.goto("/page");
+```
+
+**Wait for URL Pattern:**
+
+```typescript
+await page.waitForURL(/\/pattern/, { timeout: 10000 });
+await page.waitForURL("/path", {
+  timeout: 10000,
+  waitUntil: "domcontentloaded",
+});
+```
+
+**Verify Current URL:**
+
+```typescript
+await expect(page).toHaveURL("/path", { timeout: 10000 });
+```
+
+### Element Interaction Patterns
+
+**Fill Input:**
+
+```typescript
+await page.getByTestId(TestId.FORM_NAME).fill(name);
+await page.getByTestId(TestId.FORM_EMAIL).fill(email);
+```
+
+**Click Button:**
+
+```typescript
+await page.getByTestId(TestId.SUBMIT_BUTTON).click();
+await page.getByTestId(TestId.MENU_TRIGGER).click();
+```
+
+**Check Visibility:**
+
+```typescript
+await expect(page.getByTestId(TestId.ELEMENT)).toBeVisible({
+  timeout: 10000,
+});
+```
+
+**Verify Text Content:**
+
+```typescript
+await expect(page.getByTestId(TestId.TEXT_ELEMENT)).toContainText(
+  expectedText,
+  { timeout: 10000 }
+);
+```
+
+**Check Attributes:**
+
+```typescript
+const input = page.getByTestId(TestId.INPUT_FIELD);
+await expect(input).toHaveAttribute("required", "");
+await expect(input).toHaveAttribute("type", "password");
+```
+
+### Error Validation Patterns
+
+**Check for Alert/Status Messages:**
+
+```typescript
+await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible({
+  timeout: 10000,
+});
+```
+
+**Verify Toast Notifications:**
+
+```typescript
+await expect(page.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
+  timeout: 10000,
+});
+
+await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
+  timeout: 10000,
+});
+```
+
+### Async Handling Patterns
+
+**Wait for Element Before Interaction:**
+
+```typescript
+await expect(page.getByTestId(TestId.INPUT_FIELD)).toBeVisible({
+  timeout: 10000,
+});
+await page.getByTestId(TestId.INPUT_FIELD).fill(value);
+```
+
+**Wait for Navigation to Complete:**
+
+```typescript
+await page.getByTestId(TestId.SUBMIT_BUTTON).click();
+
+await page.waitForURL("/destination", {
+  timeout: 10000,
+  waitUntil: "domcontentloaded",
+});
+
+await expect(page.getByTestId(TestId.SUCCESS_INDICATOR)).toBeVisible({
+  timeout: 10000,
+});
+```
+
+**Wait for Dynamic Content:**
+
+```typescript
+await page.getByTestId(TestId.TRIGGER_ELEMENT).click();
+
+await expect(page.getByTestId(TestId.DYNAMIC_CONTENT)).toBeVisible({
+  timeout: 10000,
+});
+```
+
+### Test Constants
+
+Define test data at the top of the test file:
+
+```typescript
+const TEST_EMAIL = "test@example.com";
+const TEST_NAME = "Test User";
+const TEST_VALUE = "test-value";
+```
+
+For unique values per test run:
+
+```typescript
+const uniqueId = `test-${Date.now()}@example.com`;
+```
+
+## Test Execution
+
+### npm Scripts
+
+**Run All Tests:**
+
+```bash
+npm run test
+```
+
+**Run Specific Test Suites:**
+
+```bash
+npm run test:e2e:feature1
+npm run test:e2e:feature2
+npm run test:unit:feature
+```
+
+**Run with UI (Headed Mode):**
+
+```bash
+npm run test:headed
+```
+
+### Test Output
+
+**Dual Reporter System:**
+
+Two reporters run in parallel during test execution:
+
+1. **List Reporter** - Real-time console output showing test progress
+2. **Consolidated Reporter** - Generates detailed reports and manages artifacts
+
+**Test Status Classification:**
+
+The consolidated reporter classifies test results as follows:
+
+- **Passed:** Test completed successfully with all assertions passing
+- **Failed:** Test failed due to assertion failures, errors, or timeouts
+- **Skipped:** Test was intentionally skipped (not run)
+
+**Important:** Any test that times out is classified as **failed**, not skipped. Timeouts indicate the test could not complete within the expected time and represent a failure condition.
+
+**Artifact Configuration:**
+
+- **Screenshots:** Only on failure
+- **Traces:** Only on first retry (not all failures)
+- **Videos:** Disabled
+
+### CI vs Local Execution
+
+**CI Environment:**
+
+- 2 retries on failure
+- 1 worker (sequential execution)
+- Requires fresh server (no reuse)
+- Forbids `.only` in tests
+- 120 second server startup timeout
+
+**Local Development:**
+
+- 0 retries
+- Optimal workers (parallel execution)
+- Reuses existing server
+- Allows `.only` for focused testing
+- 120 second server startup timeout
+
+## Test Results and Reporting
+
+### Output Directory Structure
+
+Each test run creates a unique timestamped directory:
+
+```
+test-results/
+└── {TEST_RUN_ID}/              <- e.g., "2024-11-06_143022-789"
+    ├── test-report.json        <- Complete structured test data
+    ├── README.md               <- Human-readable summary
+    ├── screenshot-1.png        <- Failure screenshots (if any)
+    ├── trace-1.zip             <- Debug traces (if any)
+    └── ...other-artifacts
+```
+
+### TEST_RUN_ID Generation
+
+The TEST_RUN_ID is automatically generated by the consolidated reporter at test startup and includes both timestamp and test filename(s):
+
+```typescript
+const testFiles = new Set<string>();
+suite.allTests().forEach((test) => {
+  const relativePath = path.relative(process.cwd(), test.location.file);
+  const fileName = path.basename(relativePath, path.extname(relativePath));
+  testFiles.add(fileName);
+});
+
+const fileNames = Array.from(testFiles).join("-");
+
+const timestamp = new Date()
+  .toISOString()
+  .replace(/[:.]/g, "-")
+  .replace(/T/, "_")
+  .split("Z")[0];
+
+const testRunId = process.env.TEST_RUN_ID || `${timestamp}_${fileNames}`;
+
+if (!process.env.TEST_RUN_ID) {
+  process.env.TEST_RUN_ID = testRunId;
+}
+```
+
+**Format:** `YYYY-MM-DD_HHMMSS-mmm_testname` (e.g., `2024-11-06_143022-789_auth.spec`)
+
+**Override:** Set `TEST_RUN_ID` environment variable before running tests to use a custom directory name.
+
+**Single Directory Guarantee:**
+
+The system ensures only ONE directory is created per test run through environment variable synchronization:
+
+1. **Consolidated reporter** generates the testRunId (including timestamp and filename) and sets `process.env.TEST_RUN_ID`
+2. **Playwright config** reads from `process.env.TEST_RUN_ID` for its `outputDir`
+3. Both systems use the exact same testRunId value
+
+This ensures:
+
+- Only ONE directory is created per test run
+- Directory name includes both timestamp and test filename for easy identification
+- All artifacts (screenshots, traces, reports) are consolidated in the same location
+- No duplicate or orphaned directories are created
+- Perfect synchronization between Playwright's output and custom reporter output
+
+**Implementation:**
+
+In `consolidated-reporter.ts`:
+
+```typescript
+onBegin(config: FullConfig, suite: Suite) {
+  const testFiles = new Set<string>();
+  suite.allTests().forEach(test => {
+    const fileName = path.basename(test.location.file, path.extname(test.location.file));
+    testFiles.add(fileName);
+  });
+
+  const fileNames = Array.from(testFiles).join('-');
+  const timestamp = new Date().toISOString()...;
+  const testRunId = process.env.TEST_RUN_ID || `${timestamp}_${fileNames}`;
+
+  if (!process.env.TEST_RUN_ID) {
+    process.env.TEST_RUN_ID = testRunId;
+  }
+
+  this.outputDir = path.join(process.cwd(), "test-results", testRunId);
+}
+```
+
+In `playwright.config.ts`:
+
+```typescript
+outputDir: process.env.TEST_RUN_ID
+  ? `test-results/${process.env.TEST_RUN_ID}/artifacts`
+  : "test-results/temp/artifacts";
+```
+
+**Benefits of this approach:**
+
+1. **Reporter runs first:** The consolidated reporter's `onBegin()` method is called before Playwright needs to create artifact directories
+2. **Filename inclusion:** Directory names clearly indicate which test file was run (e.g., `auth.spec`, `checkout.spec`)
+3. **No timestamp desynchronization:** Single point of testRunId generation prevents multiple directory creation
+4. **Easy identification:** Human-readable directory names make it simple to find test results
+
+### test-report.json Format
+
+The consolidated reporter generates a JSON file with complete test data:
+
+```json
+{
+  "summary": {
+    "total": 5,
+    "passed": 4,
+    "failed": 1,
+    "skipped": 0,
+    "duration": 12543,
+    "timestamp": "2024-11-06T14:30:22.789Z",
+    "outputDirectory": "test-results/2024-11-06_143022-789"
+  },
+  "tests": [
+    {
+      "title": "should perform expected action",
+      "file": "e2e/feature.spec.ts",
+      "status": "passed",
+      "duration": 2134
+    },
+    {
+      "title": "should handle error case",
+      "file": "e2e/feature.spec.ts",
+      "status": "failed",
+      "duration": 1876,
+      "error": "Error message here",
+      "errorStack": "Error: Error message here\n    at Object.<anonymous> (/path/to/test.ts:123:45)\n    at helperFunction (/path/to/test.ts:210:10)",
+      "screenshots": ["screenshot-1.png"],
+      "traces": ["trace-1.zip"]
+    }
+  ]
+}
+```
+
+**Status Field Values:**
+
+- `"passed"`: Test completed successfully
+- `"failed"`: Test failed due to assertion failure, error, or timeout
+- `"skipped"`: Test was intentionally skipped
+
+**Note:** Tests that time out will have `"status": "failed"` and an error message containing "timeout" or "exceeded".
+
+**Conditional Fields:**
+
+- `error`: Only present if test failed (contains error message)
+- `errorStack`: Only present if test failed (contains complete stack trace with file paths and line numbers)
+- `screenshots`: Only present if screenshots were captured
+- `videos`: Only present if videos were recorded
+- `traces`: Only present if traces were captured
+
+### README.md Format
+
+The README provides a comprehensive human-readable summary with all available diagnostic information for failed tests:
+
+**1. Header:**
+
+- Timestamp
+- Total duration
+
+**2. Summary:**
+
+- Test counts (passed, failed, skipped, total) with emoji indicators
+
+**3. Failed Tests (if any):**
+
+For each failed test, the following information is included:
+
+- **Test title** - The descriptive name of the failed test
+- **File path** - Relative path to the test file
+- **Duration** - How long the test ran before failing (in milliseconds)
+- **Error Message** - The primary error message (in code block format)
+- **Stack Trace** - Complete stack trace showing the exact line where the failure occurred
+- **Screenshots** - List of captured screenshots (only on failure)
+- **Traces** - List of debug traces (only on first retry)
+
+**Example:**
+
+```md
+### should display player cards with essential information
+
+**File:** e2e/find-partners.spec.ts
+**Duration:** 30151ms
+
+**Error Message:**
+```
+
+Test timeout of 30000ms exceeded.
+
+```
+
+**Stack Trace:**
+```
+
+Error: Test timeout of 30000ms exceeded.
+at Timeout.\_onTimeout (/path/to/test.ts:542:15)
+at setPreferences (/path/to/test.ts:210:10)
+
+```
+
+**Screenshots:**
+- test-failed-1.png
+```
+
+**4. All Tests:**
+
+- Status icon (✅ passed / ❌ failed / ⏭️ skipped)
+- Test title
+- Duration
+
+**Diagnostic Data Priority:**
+
+The README includes ALL available diagnostic data for failed tests, ensuring that developers have complete information to diagnose issues without needing to check multiple files. This includes:
+
+1. **Error messages** - What went wrong (high-level)
+2. **Stack traces** - Exactly where it went wrong (file and line number)
+3. **Screenshots** - Visual state when the failure occurred
+4. **Traces** - Playwright traces for step-by-step debugging
+5. **Duration** - Whether timeout-related or immediate failure
+
+This comprehensive approach eliminates the need to cross-reference multiple log files or run additional commands to understand test failures.
+
+### Artifact Management
+
+**How Artifacts are Processed:**
+
+1. **During Test Execution:**
+
+   - Playwright captures screenshots/traces based on configuration
+   - Attachments are temporarily stored by Playwright
+
+2. **On Test End:**
+
+   - Consolidated reporter categorizes attachments by file extension:
+     - `.png` → screenshots
+     - `.webm` → videos
+     - `.zip` → traces
+   - Files are copied to the output directory
+   - Only filenames are stored in test results (not full paths)
+
+3. **On Test Completion:**
+   - JSON report includes artifact filenames in test objects
+   - README links to artifact filenames
+   - All artifacts are in the same directory as reports
+
+## Adding New Tests
+
+### Step-by-Step Checklist
+
+1. **Create Test File**
+
+   - Location: `e2e/{feature}.spec.ts`
+
+2. **Add TestId Values**
+
+   - Update `test.types.ts`
+   - Add all interactive elements for the feature
+
+   ```typescript
+   export enum TestId {
+     ...
+     FEATURE_INPUT = "feature-input",
+     FEATURE_BUTTON = "feature-button",
+   }
+   ```
+
+3. **Apply Data Attributes in Components**
+
+   ```typescript
+   import { TestId } from "@/test.types";
+
+   <Input data-testid={TestId.FEATURE_INPUT} />
+   <Button data-testid={TestId.FEATURE_BUTTON}>Save</Button>
+   ```
+
+4. **Write Cleanup Function**
+
+   ```typescript
+   async function cleanupFeatureData() {
+     await prisma.record.deleteMany({
+       where: {
+         identifier: {
+           in: [TEST_IDENTIFIER],
+         },
+       },
+     });
+   }
+   ```
+
+5. **Implement Test Suite**
+
+   ```typescript
+   import { test, expect } from "@playwright/test";
+   import { TestId } from "../test.types";
+   import { PrismaClient } from "@prisma/client";
+
+   const prisma = new PrismaClient();
+
+   test.describe("Feature Tests", () => {
+     test.beforeAll(async () => {
+       await cleanupFeatureData();
+     });
+
+     test.afterAll(async () => {
+       await cleanupFeatureData();
+       await prisma.$disconnect();
+     });
+
+     test("should perform action", async ({ page }) => {
+       await page.goto("/page");
+       await page.getByTestId(TestId.FEATURE_INPUT).fill("value");
+       await page.getByTestId(TestId.FEATURE_BUTTON).click();
+       await expect(page.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
+         timeout: 10000,
+       });
+     });
+   });
+   ```
+
+6. **Document Tests in Tests.md**
+
+   - Add test section following the format below
+   - Document each test case with pass conditions
+
+7. **Add npm Script**
+
+   - Update `package.json`:
+
+   ```json
+   "test:e2e:feature": "playwright test e2e/feature.spec.ts"
+   ```
+
+8. **Run Tests**
+   ```bash
+   npm run test:e2e:feature
+   ```
+
 ## Tests.md Documentation Format
 
-The `Tests.md` file documents all tests in the repository. Each test case should be listed in a single line with an indented line below showing the pass condition. The document must include:
+The `docs/Tests.md` file documents all tests in the repository. Each test case should be listed in a single line with an indented line below showing the pass condition.
 
-1. **Run All Tests Section**: Shows the command to run the complete test suite
-2. **Test Index**: Numbered list with links to test sections, including:
-   - Section name with anchor link
-   - File path as a clickable link
-   - npm run command for that specific test file
+### Test Index
 
-### Test Index Format
+Numbered list with links to test sections, including:
+
+- Section name with anchor link
+- File path as a clickable link
+- npm run command for that specific test file
+
+**Format:**
 
 ```md
 ## Test Index
 
-1. [Test Category Name](#1-test-category-name-tests) - [e2e/test-file.spec.ts](e2e/test-file.spec.ts) - `npm run test:category`
-2. [Another Category](#2-another-category-tests) - [e2e/another.spec.ts](e2e/another.spec.ts) - `npm run test:another`
+1. [Feature Tests](#1-feature-tests) - [e2e/feature.spec.ts](../e2e/feature.spec.ts) - `npm run test:e2e:feature`
+2. [Component Tests](#2-component-tests) - [e2e/component.spec.ts](../e2e/component.spec.ts) - `npm run test:e2e:component`
 ```
 
 ### Test Section Format
@@ -26,1804 +1142,49 @@ The `Tests.md` file documents all tests in the repository. Each test case should
 Each test section should follow this structure:
 
 ```md
-## 1. Test Category Name Tests
+## 1. Feature Tests
 
-**File:** `e2e/test-file.spec.ts`
-**Command:** `npm run test:category`
+**File:** `e2e/feature.spec.ts`
+**Command:** `npm run test:e2e:feature`
 
-### Feature Being Tested
+Tests the feature functionality covering creation, modification, and deletion.
 
-- should perform specific action
-  ✓ Expected result description
+### Creation Flow
 
-- should handle edge case
-  ✓ Expected result description
+- should create new record with valid data
+  ✓ Record created in database with expected fields
+
+- should validate required fields
+  ✓ Error message appears for missing fields
+
+- should reject duplicate entries
+  ✓ Error toast appears indicating duplicate exists
+
+### Modification Flow
+
+- should update record with valid changes
+  ✓ Record updated in database, success notification shown
+
+- should reject invalid modifications
+  ✓ Error toast appears with validation message
 ```
 
-## Universal Testing Methodology
+### Documentation Maintenance
 
-### The Three-Part Pattern
+**Rule:** Every test change requires a corresponding update in `docs/Tests.md`.
 
-All tests follow this three-part pattern to ensure compatibility between browser and Node.js environments:
+**Examples of changes requiring documentation updates:**
 
-1. **Environment Utilities** ([src/lib/env.utils.ts](src/lib/env.utils.ts))
+- Adding a new test case
+- Modifying test behavior
+- Changing test assertions
+- Updating test names
+- Adding new test suites
 
-   - All environment variable access uses `ENV` object
-   - All browser API access uses `getBrowserAPI()` function
-   - Applied to all utility files and functions
+**Process:**
 
-2. **Client Injection Pattern** (Utility Functions)
-
-   - All database functions accept optional `client?: SupabaseClient` parameter
-   - Functions default to client-side `supabase` client
-   - Enables tests to inject service role client
-
-3. **Service Role Testing** (Test Files)
-   - Tests create service role client: `createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY)`
-   - Tests inject client to functions: `myFunction({ param: value, client: supabase })`
-   - Tests query seeded data from real database
-
-### Application Rules
-
-Apply these patterns universally:
-
-**Environment Utilities - Required For:**
-
-- All utility functions in `src/lib/*.utils.ts`
-- Any code accessing environment variables
-- Any code using browser APIs (localStorage, window, document, etc.)
-
-**Client Injection - Required For:**
-
-- All functions that query the database (`.from()`, `.select()`, `.insert()`, `.update()`, `.delete()`)
-- All utility functions that may be imported by unit tests
-
-**Service Role Client - Required For:**
-
-- All unit test files
-- All test helper utilities
-
-## Single Source of Truth
-
-Refer only to the `docs/Tests.md` file to determine the design and expected results of each test case.
-Any changes made to the tests should be documented in the `docs/Tests.md` file.
-
-## Core Testing Philosophy
-
-**Real Database, No Mocks**: All tests interact with a real database using seeded data. Never use mocks or stubs.
-
-**Two Test Types**:
-
-1. **E2E Tests (Playwright)**: Test complete user workflows through the UI
-2. **Unit Tests (Playwright)**: Test complex algorithms and helper functions directly
-
-## Required Imports
-
-Every test file must import from the centralized test utilities:
-
-```typescript
-import { test, expect } from "@playwright/test";
-import {
-  TestResultLogger,
-  getElementByTestId,
-  clickByTestId,
-  fillByTestId,
-  isVisibleByTestId,
-  signUp,
-  signIn,
-  signOut,
-  formatTestConditions,
-  logTestResult,
-} from "../src/lib/test.utils";
-import { TestId } from "../src/test.types";
-import * as fs from "fs";
-import * as path from "path";
-```
-
-**Note:** Test files use relative imports (`../src/...`) instead of path aliases (`@/...`) to ensure compatibility with Playwright's test runner.
-
-## Test Structure Requirements
-
-### E2E Tests (Playwright)
-
-Every E2E test must follow this exact structure:
-
-```typescript
-test.describe("Feature Name Tests", () => {
-  const logger = new TestResultLogger();
-
-  test.beforeAll(async () => {});
-
-  test.afterAll(async () => {
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-  });
-
-  test("should perform specific action", async ({ page }) => {
-    await page.goto("/auth");
-    await page.fill("#email", "test@example.com");
-    await page.fill("#password", "password123");
-    await page.click("button[type='submit']");
-
-    await page.waitForURL("/");
-
-    await expect(page.getByRole("button", { name: /feature/i })).toBeVisible({
-      timeout: 15000,
-    });
-    const isVisible = await page
-      .getByRole("button", { name: /feature/i })
-      .isVisible();
-
-    logger.log(
-      "Element visibility check",
-      formatTestConditions({
-        userType: "authenticated user",
-        authState: "logged in",
-        action: "submitted signin form",
-        email: "test@example.com",
-      }),
-      "Element should be visible",
-      isVisible ? "Element is visible" : "Element not found",
-      isVisible
-    );
-  });
-});
-```
-
-#### E2E Test Rules
-
-1. **Pre-Register All Expected Tests**: At the start of each test, register ALL assertions that should execute using `logger.registerExpectedTest()`. This ensures unreached assertions are counted as failures.
-2. **Track Failures, Don't Throw Mid-Test**: Use a `failures: string[]` array to track failures throughout the test. Only throw at the very end if `failures.length > 0`. This ensures all assertions execute and are logged.
-3. **Finalize Unreached Tests**: Call `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing data. This marks any unreached assertions as failed.
-4. **Conditions Must Include**: User type, auth state, action performed, and user email
-5. **Catch All Assertions**: Wrap all `expect()` assertions in try-catch blocks to prevent Playwright stack traces
-6. **Use logTestResult Helper**: Automatically captures screenshots and error toasts on failure
-7. **Use Relative Imports**: Import test utilities from `"../src/lib/test.utils"` instead of `"@/lib/test.utils"`
-8. **No Fixed Waits - Use Proper Timeouts**: Do not use fixed wait times (e.g., `page.waitForTimeout()`). Instead, use `expect()` assertions with timeouts to wait for elements. **Critical distinction**:
-   - ❌ **WRONG**: `const visible = await element.isVisible({ timeout: 15000 }).catch(() => false)` - The `isVisible()` method checks visibility RIGHT NOW; the timeout only applies to finding the element, NOT waiting for it to become visible. Adding `.catch()` prevents proper waiting by swallowing timeout errors.
-   - ✅ **CORRECT**: Wrap in try-catch to wait for the element, then check visibility for logging:
-     ```typescript
-     let visible = false;
-     try {
-       await expect(element).toBeVisible({ timeout: 15000 });
-       visible = await element.isVisible();
-     } catch (error) {
-       visible = false;
-     }
-     ```
-   - The `expect()` assertion actively waits for the element to become visible within the timeout period. The try-catch prevents Playwright stack traces.
-9. **Navigation with Async Operations**: When clicks trigger async operations (database queries, API calls) before navigation, use `waitUntil: 'domcontentloaded'` with increased timeout:
-   - ❌ **WRONG**: `await button.click(); await page.waitForURL(/\/target/);` - Default `waitUntil: 'load'` may timeout when async DB operations delay navigation
-   - ✅ **CORRECT**: `await button.click(); await page.waitForURL(/\/target/, { timeout: 20000, waitUntil: 'domcontentloaded' });` - Waits for DOM ready instead of full page load, allows time for async operations
-   - Use this pattern when click handlers perform database/API operations before calling `navigate()`
-10. **Test Isolation - Page Navigation**: When running tests sequentially in a suite, ensure proper page state isolation to prevent state pollution between tests:
-    - ❌ **WRONG**: Relying on previous test's navigation or assuming clean state
-    - ✅ **CORRECT**: Each test should explicitly navigate to its starting page before authentication/setup:
-      ```typescript
-      test("should perform action", async ({ page }) => {
-        await page.goto("/starting-page");
-        await signIn(page, testUser, password);
-        // ... rest of test
-      });
-      ```
-    - **Why**: Tests may pass in isolation but fail in suite due to page state from previous tests. Explicit navigation ensures each test starts from a known state.
-    - **When to apply**: Any test that can be run both individually and as part of a suite, especially tests involving authentication or page-specific state.
-11. **Structured Logging**: Every assertion logged using `logTestResult()` - stores details only for failures
-12. **Real User Flows**: Test complete user pathways including role/subscription checks
-13. **Screenshot on Failure**: Automatically captured via `logTestResult()` helper
-14. **Toast Error Checking**: Automatically checked and logged via `logTestResult()` helper
-15. **Summary Output Only**: Single summary printed after all tests complete, no intermediate logs
-
-### Unit Tests (Playwright)
-
-Unit tests focus on testing complex logic and algorithms directly by importing app functions and testing them with real database data.
-
-```typescript
-import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
-import { TestResultLogger, formatTestConditions } from "../src/lib/test.utils";
-import { myAlgorithmFunction } from "../src/lib/my-algorithm.utils";
-import { ENV } from "../src/lib/env.utils";
-import * as fs from "fs";
-import * as path from "path";
-
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
-
-test.describe("Algorithm Name Tests", () => {
-  const logger = new TestResultLogger();
-
-  test.beforeAll(async () => {
-    console.log("\n=== ALGORITHM TESTS ===\n");
-  });
-
-  test("should match correct criteria", async () => {
-    const { data: userPrefs } = await supabase
-      .from("partner_preferences")
-      .select("*")
-      .eq("user_id", "seeded-user-id")
-      .single();
-
-    const result = await myAlgorithmFunction({
-      userPrefs: userPrefs,
-      someParam: "value",
-      client: supabase,
-    });
-
-    const conditions = formatTestConditions({
-      input: "value",
-      filter: "active",
-    });
-    const passed = result.length === 5;
-
-    logger.log(
-      "Algorithm matching criteria",
-      conditions,
-      "Results: 5 matches",
-      `Results: ${result.length} matches`,
-      passed
-    );
-
-    if (!passed) {
-      throw new Error("Test failed - see summary for details");
-    }
-
-    expect(result.length).toBe(5);
-  });
-
-  test.afterAll(async () => {
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-
-    console.log("\n=== END OF TESTS ===\n");
-  });
-});
-```
-
-#### Unit Test Rules
-
-1. **Import from App Code**: Test functions must be imported from actual application files (single source of truth)
-2. **Use Service Role Client**: Create a Supabase client with service role key to bypass RLS policies
-3. **Inject Client into Functions**: Pass the service role client to app functions using the client injection pattern
-4. **Use Seeded Data**: Query database for seeded test data, never create mock data
-5. **Real Database**: Always use actual database interactions, never mocks
-6. **Use TestResultLogger**: Create logger instance at describe level, same as E2E tests
-7. **File-Based Logging**: Write logger data to JSON file in `test.afterAll()` for reporter aggregation
-8. **Format Conditions**: Use `formatTestConditions()` for consistent logging
-9. **Throw on Failure**: Throw generic error if test fails to preserve test failure status
-10. **Environment Compatibility**: All imported code must use `@/lib/env.utils` for universal compatibility (see Environment Compatibility section below)
-
-## Environment Compatibility for Unit Tests
-
-All code that may be imported by unit tests must use the centralized environment utilities to ensure compatibility with both browser and Node.js test environments.
-
-### Universal Approach
-
-**Always use `@/lib/env.utils` for environment variables and browser APIs.** This ensures universal compatibility with zero performance overhead.
-
-#### Environment Variables
-
-```typescript
-import { ENV } from "@/lib/env.utils";
-
-const apiUrl = ENV.SUPABASE_URL;
-const apiKey = ENV.SUPABASE_KEY;
-```
-
-#### Browser APIs
-
-```typescript
-import { getBrowserAPI } from "@/lib/env.utils";
-
-const storage = getBrowserAPI(() => localStorage);
-const location = getBrowserAPI(() => window.location);
-```
-
-### Why This Approach
-
-**Performance**: The environment checks happen once at module load time, not on every function call. There is zero runtime performance penalty.
-
-**Consistency**: Using centralized utilities ensures the same pattern everywhere, making the codebase predictable and maintainable.
-
-**Testability**: Any code using these utilities can be safely imported and tested in unit tests without modification.
-
-### Implementation Example
-
-The Supabase client ([src/integrations/supabase/client.ts](../src/integrations/supabase/client.ts)) demonstrates this pattern:
-
-```typescript
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
-import { ENV, getBrowserAPI } from "@/lib/env.utils";
-
-export const supabase = createClient<Database>(
-  ENV.SUPABASE_URL,
-  ENV.SUPABASE_KEY,
-  {
-    auth: {
-      storage: getBrowserAPI(() => localStorage),
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  }
-);
-```
-
-### When to Apply
-
-**Apply this pattern universally** in:
-
-- All utility files that access environment variables
-- All code that uses browser APIs (localStorage, window, document, etc.)
-- Any file that might be imported by unit tests
-- Shared configuration files
-
-The overhead is negligible and the consistency benefit is significant. When in doubt, use the env utilities.
-
-## Client Injection Pattern
-
-All database utility functions accept an optional Supabase client parameter, enabling tests to inject a service role client while app code uses the default client-side client.
-
-### In Utility Functions
-
-All functions that query the database must follow this pattern:
-
-```typescript
-import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-interface FunctionOptions {
-  someParam: string;
-  client?: SupabaseClient;
-}
-
-export const myDatabaseFunction = async ({
-  someParam,
-  client = supabase,
-}: FunctionOptions) => {
-  const { data, error } = await client
-    .from("table_name")
-    .select("*")
-    .eq("field", someParam);
-
-  if (error) throw error;
-  return data;
-};
-```
-
-**Requirements:**
-
-1. Add `client?: SupabaseClient` to the options interface
-2. Default to `client = supabase` in function parameters
-3. Replace all `supabase.from()` calls with `client.from()`
-
-### In Unit Tests
-
-All unit tests must create a service role client and inject it into tested functions:
-
-```typescript
-import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
-import { myDatabaseFunction } from "@/lib/my-utils";
-import { ENV } from "@/lib/env.utils";
-
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
-
-test("should query database correctly", async () => {
-  const result = await myDatabaseFunction({
-    someParam: "test",
-    client: supabase,
-  });
-
-  expect(result).toBeDefined();
-});
-```
-
-**Requirements:**
-
-1. Create client with `ENV.SUPABASE_SERVICE_ROLE_KEY`
-2. Pass `client: supabase` to all tested functions
-3. Query seeded data from database
-
-### Example Implementation
-
-Utility function:
-
-```typescript
-interface SearchOptions {
-  filters: FilterCriteria;
-  sortBy: string;
-  client?: SupabaseClient;
-}
-
-export const searchResults = async ({
-  filters,
-  sortBy,
-  client = supabase,
-}: SearchOptions) => {
-  const { data } = await client
-    .from("items")
-    .select("*")
-    .eq("category", filters.category);
-  return data;
-};
-```
-
-Unit test:
-
-```typescript
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
-
-const results = await searchResults({
-  filters: { category: "electronics" },
-  sortBy: "price",
-  client: supabase,
-});
-```
-
-## Logging
-
-### File-Based Logging with Aggregated Summary Output
-
-All tests use a **file-based inter-process communication** architecture that works reliably with Playwright's multi-process test execution model.
-
-#### The Challenge
-
-Playwright runs tests in isolated worker processes and buffers all output (including `console.log()` and `process.stdout.write()`), making direct logging from tests impossible. Additionally, each nested `test.describe()` block runs its own `test.afterAll()` hook, fragmenting test data.
-
-#### The Solution
-
-Tests write their results to timestamped JSON files during execution, and the reporter aggregates ALL these files at the end to produce a comprehensive summary with proper global test numbering.
-
-#### Architecture Flow
-
-```
-Test Worker Process (isolated):
-  test() executes
-    ↓ calls logTestResult()
-    ↓ logger.log() stores in memory
-  test.afterAll() runs (once per describe block)
-    ↓ logger.getSerializableData()
-    ↓ writes test-results/afterall-call-{timestamp}.json
-
-Reporter Process (main):
-  onEnd() hook executes (after ALL tests)
-    ↓ reads ALL afterall-call-*.json files
-    ↓ aggregates tests with global numbering (1...N)
-    ↓ builds complete summary
-    ↓ outputs via process.stdout.write() (WORKS!)
-    ↓ cleans up temporary files
-```
-
-#### Components
-
-**1. Minimal Test Reporter** ([e2e/utils/minimal-reporter.ts](../e2e/utils/minimal-reporter.ts))
-
-- **During execution**: Displays one line per test: `✓   1 …test name`
-- **In `onEnd()`**: Reads all `afterall-call-*.json` files, aggregates data, renumbers tests globally, outputs complete summary
-- Runs in main process with proper stdout access
-
-**2. TestResultLogger** ([src/lib/test.utils.ts](../src/lib/test.utils.ts))
-
-- Tracks test results in memory during test execution
-- **Passed tests**: Counted only, minimal data
-- **Failed tests**: Complete diagnostics (conditions, expectations, observations, screenshots, error toasts)
-- **`getSerializableData()`**: Returns JSON-ready structure for file writing
-
-**3. test.afterAll() Hook** (in test files)
-
-- Writes `test-results/afterall-call-{timestamp}.json` with logger data
-- Creates one file per nested `test.describe()` block
-- Files persist across process boundaries
-
-**4. File Aggregation** (reporter's `onEnd()`)
-
-- Collects ALL `afterall-call-*.json` files from test run
-- Renumbers tests globally (avoiding duplicate numbers from nested blocks)
-- Builds unified summary
-- Cleans up temporary files
-
-#### Summary Output Examples
-
-**All Tests Pass:**
-
-```
-30 tests | 30 passed | 0 failed
-```
-
-**With Failures:**
-
-```
-30 tests | 25 passed | 5 failed
-
-Failed Tests:
-
-10. should show "Manage Subscription" button for premium users
-   Conditions: user=premium@test.com, page=/subscription
-   Expected: Shows "Manage Subscription"
-   Observed: null
-   Screenshot: test-results/failures/manage-subscription-button-1735123456789.png
-
-14. should block free users from messaging coaches
-   Conditions: user=free@test.com, action=message click
-   Expected: Premium modal appears
-   Observed: false
-   Screenshot: test-results/failures/free-user-messaging-block-1735123456790.png
-   Error Toast: Failed to load coaches
-
-17. should allow premium users to view courts map
-   Conditions: user=premium@test.com, page=/courts
-   Expected: Map visible or no prompt
-   Observed: Map: false, Prompt: true
-   Screenshot: test-results/failures/premium-user-courts-access-1735123456791.png
-```
-
-### Test Structure with File-Based Logging
-
-All E2E tests follow this pattern for file-based logging with aggregated summary output:
-
-```typescript
-import * as fs from "fs";
-import * as path from "path";
-
-test.describe("Feature Tests", () => {
-  const logger = new TestResultLogger();
-
-  test.afterAll(async () => {
-    logger.finalizeUnreachedTests();
-
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-  });
-
-  test("should perform action", async ({ page }) => {
-    const failures: string[] = [];
-
-    logger.registerExpectedTest(
-      "Feature button visibility",
-      "user=authenticated, page=/feature",
-      "Button should be visible"
-    );
-    logger.registerExpectedTest(
-      "Feature action executes",
-      "user=authenticated, page=/feature, action=click button",
-      "Action completes successfully"
-    );
-
-    await page.goto("/feature");
-
-    const element = page.getByTestId(TestId.FEATURE_BUTTON);
-
-    let isVisible = false;
-    try {
-      await expect(element).toBeVisible({ timeout: 10000 });
-      isVisible = await element.isVisible();
-    } catch (error) {
-      isVisible = false;
-    }
-
-    await logTestResult(
-      logger,
-      page,
-      "Feature button visibility",
-      formatTestConditions({ user: "authenticated", page: "/feature" }),
-      "Button should be visible",
-      isVisible,
-      "Button is visible",
-      "Button not found"
-    );
-
-    if (!isVisible) {
-      failures.push("Button not visible");
-    }
-
-    if (isVisible) {
-      await element.click();
-    }
-
-    const actionComplete = await page
-      .locator("text=Success")
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-
-    await logTestResult(
-      logger,
-      page,
-      "Feature action executes",
-      formatTestConditions({
-        user: "authenticated",
-        page: "/feature",
-        action: "click button",
-      }),
-      "Action completes successfully",
-      actionComplete,
-      "Success message shown",
-      "Success message not shown"
-    );
-
-    if (!actionComplete) {
-      failures.push("Action did not complete");
-    }
-
-    if (failures.length > 0) {
-      throw new Error("Test failed - see summary for details");
-    }
-  });
-});
-```
-
-**Key Requirements:**
-
-1. **Pre-register ALL expected tests**: Call `logger.registerExpectedTest()` for every assertion at the start of each test
-2. **Track failures, don't throw mid-test**: Use `failures: string[]` array, only throw at the very end
-3. **Finalize unreached tests**: Call `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing
-4. **Import fs and path**: Required for file-based inter-process communication
-5. **Write to JSON file in test.afterAll()**: Persists data across process boundaries
-6. **Use timestamped filenames**: Ensures unique files for each describe block
-7. **Wrap assertions in try-catch**: Prevents Playwright stack traces during execution
-8. **Use logTestResult helper**: Automatically captures screenshots and error toasts on failure
-9. **All diagnostic data goes through logger**: Conditions, expectations, observed values, screenshots, error toasts
-10. **MinimalReporter aggregates all files**: Reporter's `onEnd()` reads all JSON files and outputs unified summary
-
-### Pre-Registration Pattern for Complete Test Coverage
-
-**Why Pre-Register Tests?**
-
-Without pre-registration, if a test fails mid-execution, subsequent assertions never run and are never logged. The test summary would show only partial results, hiding the true scope of failures.
-
-**How It Works:**
-
-1. **At test start**: Register ALL expected assertions using `logger.registerExpectedTest(name, conditions, expectation)`
-2. **During execution**: Track failures in a `failures: string[]` array instead of throwing immediately
-3. **At test end**: Only throw if `failures.length > 0`
-4. **In afterAll**: Call `logger.finalizeUnreachedTests()` to mark unreached assertions as failed
-
-**Result:** The summary always shows the TOTAL number of assertions that SHOULD have executed, whether they:
-
-- Passed ✓
-- Failed during execution ✗
-- Failed to execute due to earlier failures ✗
-
-**Example:**
-
-```typescript
-test("complete user flow", async ({ page }) => {
-  const failures: string[] = [];
-
-  // Pre-register ALL assertions this test will make
-  logger.registerExpectedTest("Step 1", "condition1", "expectation1");
-  logger.registerExpectedTest("Step 2", "condition2", "expectation2");
-  logger.registerExpectedTest("Step 3", "condition3", "expectation3");
-
-  // Execute and log Step 1
-  const step1Result = await checkStep1(page);
-  await logTestResult(
-    logger,
-    page,
-    "Step 1",
-    "condition1",
-    "expectation1",
-    step1Result,
-    "success",
-    "failure"
-  );
-  if (!step1Result) failures.push("Step 1 failed");
-
-  // Even if Step 1 failed, continue to Step 2
-  const step2Result = await checkStep2(page);
-  await logTestResult(
-    logger,
-    page,
-    "Step 2",
-    "condition2",
-    "expectation2",
-    step2Result,
-    "success",
-    "failure"
-  );
-  if (!step2Result) failures.push("Step 2 failed");
-
-  // And Step 3
-  const step3Result = await checkStep3(page);
-  await logTestResult(
-    logger,
-    page,
-    "Step 3",
-    "condition3",
-    "expectation3",
-    step3Result,
-    "success",
-    "failure"
-  );
-  if (!step3Result) failures.push("Step 3 failed");
-
-  // Only throw at the very end
-  if (failures.length > 0) {
-    throw new Error("Test failed - see summary for details");
-  }
-});
-```
-
-If Step 1 fails, the summary shows:
-
-```
-3 assertions | 0 passed | 3 failed
-
-Failed Assertions:
-1. Step 1
-   Expected: expectation1
-   Observed: failure
-2. Step 2
-   Expected: expectation2
-   Observed: Test did not execute - previous assertion failed
-3. Step 3
-   Expected: expectation3
-   Observed: Test did not execute - previous assertion failed
-```
-
-Without pre-registration, you'd only see: `1 assertion | 0 passed | 1 failed` (hiding 2 assertions)
-
-### Why This File-Based Logging Strategy?
-
-**Benefits:**
-
-1. **Complete Test Coverage**: Always shows total assertions, not just what executed
-2. **Clean Execution Output**: Minimal reporter shows progress without clutter
-3. **No Duplicate Errors**: Playwright stack traces suppressed, all diagnostics in summary
-4. **Actionable Failure Details**: Complete context provided only for failures
-5. **Efficient Review**: Passed tests counted only, failures get full attention
-6. **Automatic Diagnostics**: Screenshots and error toasts captured without manual effort
-7. **Centralized Aggregation**: Single summary shows results from all test files in the run
-8. **Reliable Output**: Uses Playwright's reporter API which has proper stdout access
-9. **Process-Safe**: File system bridges isolated worker and reporter processes
-
-**Architecture Advantages:**
-
-- **No Process Isolation Issues**: Files persist across process boundaries
-- **Handles Nested Describes**: Each describe block writes its own file with unique timestamp
-- **File-Based IPC**: Test workers write JSON files, reporter reads and aggregates
-- **Reporter Hook**: Aggregation and output happen in `onEnd()` when Playwright allows stdout
-- **Universal Application**: Works for all test files without modification
-
-**Applied Universally:**
-
-- All E2E tests use `TestResultLogger` with `logTestResult()` helper (for page interactions)
-- All unit tests use `TestResultLogger` with `logger.log()` (for direct function testing)
-- Both E2E and unit tests use the same file-based logging approach
-- Minimal reporter configured in `playwright.config.ts`
-- `test.afterAll()` writes JSON files to `test-results/afterall-call-{timestamp}.json`
-- MinimalReporter aggregates all JSON files in its `onEnd()` hook
-
-## Element Selection with TestId Enum
-
-### Adding New Test IDs
-
-When a component needs testing, add data-testid attributes:
-
-1. **Add to enum** in `src/test.types.ts`:
-
-```typescript
-export enum TestId {
-  NEW_FEATURE_BUTTON = "new-feature-button",
-  NEW_FEATURE_MODAL = "new-feature-modal",
-}
-```
-
-2. **Add to component**:
-
-```tsx
-import { TestId } from "@/test.types";
-
-<button data-testid={TestId.NEW_FEATURE_BUTTON}>Click Me</button>;
-```
-
-3. **Use in tests**:
-
-```typescript
-await clickByTestId(page, TestId.NEW_FEATURE_BUTTON);
-const isVisible = await isVisibleByTestId(page, TestId.NEW_FEATURE_MODAL);
-```
-
-### Element Selection Helpers
-
-Use these helper functions instead of manual selectors:
-
-```typescript
-const element = await getElementByTestId(page, TestId.SUBMIT_BUTTON);
-
-await clickByTestId(page, TestId.SUBMIT_BUTTON);
-
-await fillByTestId(page, TestId.EMAIL_INPUT, "user@example.com");
-
-const isVisible = await isVisibleByTestId(page, TestId.MODAL, 3000);
-
-const text = await getTextByTestId(page, TestId.WELCOME_MESSAGE);
-
-const count = await countByTestId(page, TestId.LIST_ITEM);
-
-const appeared = await waitForElement(page, TestId.LOADING_SPINNER);
-```
-
-## Authentication Helpers
-
-### Sign In
-
-```typescript
-await signIn(page, "test@example.com", "password123");
-```
-
-### Sign Out
-
-```typescript
-await signOut(page);
-```
-
-### Sign Up
-
-```typescript
-await signUp(page, {
-  email: generateUniqueEmail("test@example.com"),
-  password: "password123",
-  fullName: "Test User",
-  // Add other required fields based on your application
-});
-```
-
-### Generate Unique Email
-
-```typescript
-const uniqueEmail = generateUniqueEmail("test@example.com");
-```
-
-## Seed File Integration
-
-### Understanding Seeded Data
-
-The seed file (`scripts/seed.ts`) contains:
-
-- Pre-created user accounts with known credentials
-- Database records for all test scenarios
-- Relationships between users, preferences, and features
-
-### Using Seeded Data in Tests
-
-```typescript
-await signIn(page, "test.user@example.com", "testPassword123");
-
-const { data: user } = await supabase.auth.admin.listUsers();
-const testUser = users.find((u) => u.email === "test.user@example.com");
-```
-
-### Resetting and Seeding the Database
-
-The database must be reset before seeding to ensure a clean state. Use the following command:
-
-```bash
-npm run seed
-```
-
-This command:
-
-1. Prompts for confirmation with a warning about data deletion
-2. Resets the database using `supabase db reset --linked --yes`
-3. Runs the seed script to populate fresh test data
-
-The seed script ([scripts/seed.ts](../scripts/seed.ts)) expects a clean database and will fail if users already exist. Always use `npm run seed` which handles the reset automatically.
-
-### Adding New Seed Data
-
-When a test requires new data:
-
-1. Add the data to `scripts/seed-data.ts`
-2. Run the reset and seed command: `npm run seed`
-3. Type `yes` when prompted to confirm database reset
-4. Reference the seeded data in tests using known identifiers
-
-## Seed Data and Test Cleanup Pattern
-
-### Centralized Seed Data
-
-All seed data is exported from `scripts/seed-data.ts` as the single source of truth:
-
-```typescript
-import { SEEDED_USERS, USER_NAMES, SEED_PASSWORD } from "../scripts/seed-data";
-```
-
-**Available exports:**
-
-- `PLAYER_DATA` - Array of player seed data (for creating seeds)
-- `COACH_DATA` - Array of coach seed data (for creating seeds)
-- `SEEDED_USERS` - Object with email lookup by category/key
-- `USER_NAMES` - Object with name lookup by email
-- `SEED_PASSWORD` - Shared password for all seeded users (`'Password123!'`)
-
-**Example usage in tests:**
-
-```typescript
-const alexEmail = SEEDED_USERS.players.beginner;
-const coachEmail = SEEDED_USERS.coaches.sydney_beginner;
-const alexName = USER_NAMES[alexEmail];
-
-await loginAsUser(page, alexEmail, SEED_PASSWORD);
-```
-
-### Test Cleanup Strategy
-
-**Rule: Cleanup runs BEFORE and AFTER each test**
-
-This ensures test isolation regardless of previous test failures or partial execution.
-
-#### Why Both beforeEach and afterEach?
-
-- **beforeEach**: Ensures clean state even if previous test failed mid-execution
-- **afterEach**: Cleans up after current test for next run
-
-#### Implementation Pattern
-
-```typescript
-import { cleanupMessagingData } from "./utils/test-cleanup";
-import { SEEDED_USERS } from "../scripts/seed-data";
-
-test.describe("Feature Tests", () => {
-  const testUserEmails = [
-    SEEDED_USERS.players.beginner,
-    SEEDED_USERS.players.intermediate,
-  ];
-
-  test.beforeEach(async () => {
-    await cleanupMessagingData(testUserEmails);
-  });
-
-  test.afterEach(async () => {
-    await cleanupMessagingData(testUserEmails);
-  });
-
-  test("should test feature", async ({ page }) => {
-    // Test implementation
-  });
-});
-```
-
-#### Available Cleanup Functions
-
-Located in `e2e/utils/test-cleanup.ts`:
-
-**`cleanupMessagingData(userEmails: string[])`**
-
-- Deletes conversations involving specified users
-- Deletes messages in those conversations
-- Deletes booking_offers in those conversations
-
-**`cleanupCommunityData(userEmails: string[])`**
-
-- Deletes posts created by specified users
-- Deletes comments created by specified users
-
-**`cleanupBookingData(userEmails: string[])`**
-
-- Deletes bookings involving specified users
-- Deletes booking_offers involving specified users
-
-**`cleanupUserGeneratedContent(userEmails: string[])`**
-
-- Calls all cleanup functions above
-- Use for comprehensive cleanup
-
-#### Database Reset vs Test Cleanup
-
-**Seed Script (`npm run seed`)**:
-
-- Full database reset + seed all data
-- Run once when:
-  - Starting test suite development
-  - Seed data structure changes
-  - Database schema changes
-
-**Test Cleanup (beforeEach/afterEach)**:
-
-- Surgical cleanup of test-affected data only
-- Runs automatically before/after every test
-- Only cleans data that test will create/modify
-- Preserves all seed data for other tests
-
-**Example:**
-
-```typescript
-// Seed script creates: 21 players + 5 coaches = 26 users
-await seedDatabase();
-
-// Test cleanup only removes data created by test users
-await cleanupMessagingData([
-  SEEDED_USERS.players.beginner,
-  SEEDED_USERS.players.intermediate,
-]);
-
-// Other 24 users' data remains untouched
-```
-
-### Best Practices
-
-1. **Specify minimal user list**: Only include users actually used in the test suite
-2. **Group related tests**: Tests using same users should be in same describe block
-3. **Update cleanup list**: Add users to testUserEmails array when adding new tests
-4. **Don't cleanup in test body**: Let beforeEach/afterEach handle it automatically
-
-### Example: Complete Test File
-
-```typescript
-import { test, expect } from "@playwright/test";
-import { SEEDED_USERS, USER_NAMES, SEED_PASSWORD } from "../scripts/seed-data";
-import { cleanupMessagingData } from "./utils/test-cleanup";
-
-test.describe("Messaging Tests", () => {
-  const testUserEmails = [
-    SEEDED_USERS.players.beginner,
-    SEEDED_USERS.players.intermediate,
-    SEEDED_USERS.coaches.sydney_beginner,
-  ];
-
-  test.beforeEach(async () => {
-    await cleanupMessagingData(testUserEmails);
-  });
-
-  test.afterEach(async () => {
-    await cleanupMessagingData(testUserEmails);
-  });
-
-  test("should send message", async ({ page }) => {
-    await page.goto("/auth");
-    await page.fill("#email", SEEDED_USERS.players.beginner);
-    await page.fill("#password", SEED_PASSWORD);
-    // ... rest of test
-  });
-});
-```
-
-## Common Patterns
-
-### Testing Role-Based Access
-
-```typescript
-test("admin users can access admin feature", async ({ page }) => {
-  await signIn(page, "admin@test.com", "password123");
-  await page.goto("/admin");
-
-  const adminVisible = await isVisibleByTestId(page, TestId.ADMIN_PANEL);
-
-  logger.log(
-    "Admin user access",
-    formatTestConditions({ role: "admin", feature: "admin panel" }),
-    "Admin panel should be visible",
-    adminVisible ? "Admin panel is visible" : "Admin panel not found",
-    adminVisible
-  );
-
-  await expect(
-    await getElementByTestId(page, TestId.ADMIN_PANEL)
-  ).toBeVisible();
-});
-```
-
-### Testing Feature Access
-
-```typescript
-test("standard users see upgrade prompt for premium features", async ({
-  page,
-}) => {
-  await signIn(page, "standard@test.com", "password123");
-  await page.goto("/premium-feature");
-
-  const upgradeVisible = await isVisibleByTestId(page, TestId.UPGRADE_PROMPT);
-
-  logger.log(
-    "Standard user upgrade prompt",
-    formatTestConditions({ role: "standard", feature: "premium feature" }),
-    "Upgrade prompt should be visible",
-    upgradeVisible ? "Upgrade prompt is visible" : "Upgrade prompt not found",
-    upgradeVisible
-  );
-
-  await expect(
-    await getElementByTestId(page, TestId.UPGRADE_PROMPT)
-  ).toBeVisible();
-});
-```
-
-### Testing Filtering Logic
-
-```typescript
-test("filters results by category", async () => {
-  const filters = {
-    category: "electronics",
-    minPrice: 100,
-  };
-
-  const results = await getFilteredResults(filters);
-
-  const conditions = formatTestConditions({
-    category: filters.category,
-    minPrice: filters.minPrice,
-  });
-
-  console.log(`[TEST] ${conditions}`);
-  console.log(
-    `  → Results: ${results.length} | All electronics: ${results.every(
-      (r) => r.category === "electronics"
-    )}`
-  );
-
-  expect(results.every((r) => r.category === "electronics")).toBe(true);
-});
-```
-
-## Summary Checklist
-
-### Before Submitting Any Test
-
-**Utility Functions:**
-
-- [ ] Uses `ENV` from `@/lib/env.utils` for environment variables
-- [ ] Uses `getBrowserAPI()` for browser APIs
-- [ ] Database functions accept `client?: SupabaseClient` parameter
-- [ ] Database functions default to `client = supabase`
-- [ ] All `supabase.from()` replaced with `client.from()`
-
-**Unit Tests:**
-
-- [ ] Imports from app code (single source of truth)
-- [ ] Creates service role client with `ENV.SUPABASE_SERVICE_ROLE_KEY`
-- [ ] Passes `client: supabase` to tested functions
-- [ ] Queries seeded data from real database
-- [ ] Creates `TestResultLogger` instance at describe level
-- [ ] Uses `formatTestConditions()` for logging
-- [ ] Uses `logger.log()` for all test assertions
-- [ ] Writes logger data to JSON file in `test.afterAll()`
-- [ ] Throws generic error on failure: `throw new Error('Test failed - see summary for details')`
-- [ ] No mocks or stubs
-
-**E2E Tests:**
-
-- [ ] Imports `TestResultLogger` from `@/lib/test.utils`
-- [ ] Imports `TestId` enum from `@/test.types`
-- [ ] Pre-registers ALL expected tests at start of each test using `logger.registerExpectedTest()`
-- [ ] Uses `failures: string[]` array to track failures throughout test
-- [ ] Only throws at end if `failures.length > 0`
-- [ ] Calls `logger.finalizeUnreachedTests()` in `test.afterAll()` before serializing
-- [ ] Uses `signIn()` for authentication
-- [ ] Selects elements using `TestId` enum values
-- [ ] Wraps `expect()` assertions in try-catch blocks
-- [ ] Uses `logTestResult()` for all assertions (not `logger.log()`)
-- [ ] Writes logger data to JSON file in `test.afterAll()`
-- [ ] No fixed waits (`waitForTimeout`)
-
-**Documentation:**
-
-- [ ] Test documented in `docs/Tests.md`
-
-## Complete Example Test File
-
-```typescript
-import { test, expect } from "@playwright/test";
-import {
-  TestResultLogger,
-  clickByTestId,
-  isVisibleByTestId,
-  getElementByTestId,
-  signIn,
-  formatTestConditions,
-  logTestResult,
-} from "../src/lib/test.utils";
-import { TestId } from "../src/test.types";
-import * as fs from "fs";
-import * as path from "path";
-
-test.describe("Feature Access Tests", () => {
-  const logger = new TestResultLogger();
-
-  test.afterAll(async () => {
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-  });
-
-  test("admin user can access admin feature", async ({ page }) => {
-    await signIn(page, "admin@test.com", "password123");
-    await page.goto("/admin");
-
-    const adminVisible = await isVisibleByTestId(page, TestId.ADMIN_PANEL);
-
-    logger.log(
-      "Admin access",
-      formatTestConditions({ role: "admin", feature: "admin panel" }),
-      "Admin panel should be visible",
-      adminVisible ? "Admin panel is visible" : "Admin panel not found",
-      adminVisible
-    );
-
-    await expect(
-      await getElementByTestId(page, TestId.ADMIN_PANEL)
-    ).toBeVisible();
-  });
-
-  test("standard user sees upgrade prompt", async ({ page }) => {
-    await signIn(page, "standard@test.com", "password123");
-    await page.goto("/premium-feature");
-
-    const upgradePromptVisible = await isVisibleByTestId(
-      page,
-      TestId.UPGRADE_PROMPT
-    );
-
-    logger.log(
-      "Standard user upgrade prompt",
-      formatTestConditions({ role: "standard", feature: "premium feature" }),
-      "Upgrade prompt should be visible",
-      upgradePromptVisible
-        ? "Upgrade prompt visible"
-        : "Upgrade prompt not found",
-      upgradePromptVisible
-    );
-
-    await expect(
-      await getElementByTestId(page, TestId.UPGRADE_PROMPT)
-    ).toBeVisible();
-  });
-});
-```
-
-## Implementation Checklist
-
-### Writing a New Utility Function
-
-Apply all three patterns to every utility function:
-
-**1. Environment Utilities**
-
-- [ ] Import `ENV` from `@/lib/env.utils`
-- [ ] Replace all `process.env.X` or `import.meta.env.X` with `ENV.X`
-- [ ] Import `getBrowserAPI` for any browser API usage
-- [ ] Wrap browser APIs: `getBrowserAPI(() => localStorage)`
-
-**2. Client Injection (if function queries database)**
-
-- [ ] Add `client?: SupabaseClient` to options interface
-- [ ] Add `client = supabase` as default parameter
-- [ ] Replace all `supabase.from()` with `client.from()`
-- [ ] Apply to all database operations in the function
-
-### Writing a New Unit Test
-
-Follow this exact structure for all unit tests:
-
-**Required Imports:**
-
-```typescript
-import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
-import { TestResultLogger, formatTestConditions } from "../src/lib/test.utils";
-import { myFunction } from "../src/lib/my-utils";
-import { ENV } from "../src/lib/env.utils";
-import * as fs from "fs";
-import * as path from "path";
-```
-
-**Required Setup:**
-
-```typescript
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
-```
-
-**Test Structure:**
-
-- [ ] Import function from app code (never rewrite logic)
-- [ ] Create `TestResultLogger` instance at describe level
-- [ ] Create service role client with `ENV.SUPABASE_SERVICE_ROLE_KEY`
-- [ ] Query seeded data using service role client
-- [ ] Pass `client: supabase` to tested function
-- [ ] Use `formatTestConditions()` for logging
-- [ ] Use `logger.log()` with conditions, expected, and observed values
-- [ ] Throw generic error on failure to preserve test status
-- [ ] Add `beforeAll` with test banner
-- [ ] Add `afterAll` with file-based logging and completion banner
-
-### Writing a New E2E Test
-
-Follow this exact structure for all E2E tests:
-
-**Required Imports:**
-
-```typescript
-import { test, expect } from "@playwright/test";
-import {
-  TestResultLogger,
-  getElementByTestId,
-  clickByTestId,
-  signIn,
-  formatTestConditions,
-  logTestResult,
-} from "../src/lib/test.utils";
-import { TestId } from "../src/test.types";
-import * as fs from "fs";
-import * as path from "path";
-```
-
-**Test Structure:**
-
-- [ ] Create `TestResultLogger` instance at describe level
-- [ ] Use `signIn()` for authentication
-- [ ] Select elements using `TestId` enum
-- [ ] Wrap `expect()` assertions in try-catch blocks
-- [ ] Use `logTestResult()` for all assertions (stores failure details automatically)
-- [ ] Throw generic error on failure to preserve test status
-- [ ] Write logger data to JSON file in `test.afterAll()` for reporter aggregation
-- [ ] Never use fixed waits (`waitForTimeout`)
-
-### Pattern Examples
-
-**Utility Function with All Patterns:**
-
-```typescript
-import { supabase } from "@/integrations/supabase/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { ENV, getBrowserAPI } from "@/lib/env.utils";
-
-interface Options {
-  userId: string;
-  client?: SupabaseClient;
-}
-
-export const getUserData = async ({ userId, client = supabase }: Options) => {
-  const apiUrl = ENV.SUPABASE_URL;
-  const storage = getBrowserAPI(() => localStorage);
-
-  const { data, error } = await client
-    .from("profiles")
-    .select("*")
-    .eq("id", userId);
-
-  if (error) throw error;
-  return data;
-};
-```
-
-**Unit Test with All Patterns:**
-
-```typescript
-import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
-import { TestResultLogger, formatTestConditions } from "../src/lib/test.utils";
-import { getUserData } from "../src/lib/user.utils";
-import { ENV } from "../src/lib/env.utils";
-import * as fs from "fs";
-import * as path from "path";
-
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_ROLE_KEY);
-
-test.describe("User Data Tests", () => {
-  const logger = new TestResultLogger();
-
-  test("should get user data", async () => {
-    const result = await getUserData({
-      userId: "seeded-user-id",
-      client: supabase,
-    });
-
-    const conditions = formatTestConditions({
-      userId: "seeded-user-id",
-    });
-    const passed = result !== undefined && result !== null;
-
-    logger.log(
-      "Get user data",
-      conditions,
-      "User data returned",
-      result ? "User data returned" : "No data returned",
-      passed
-    );
-
-    if (!passed) {
-      throw new Error("Test failed - see summary for details");
-    }
-
-    expect(result).toBeDefined();
-  });
-
-  test.afterAll(async () => {
-    const testResultsDir = path.join(process.cwd(), "test-results");
-    if (!fs.existsSync(testResultsDir)) {
-      fs.mkdirSync(testResultsDir, { recursive: true });
-    }
-
-    const data = logger.getSerializableData();
-    const callTimestamp = Date.now();
-    const callPath = path.join(
-      testResultsDir,
-      `afterall-call-${callTimestamp}.json`
-    );
-
-    fs.writeFileSync(
-      callPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          callId: callTimestamp,
-          stats: data.stats,
-          testsCount: data.tests.length,
-          tests: data.tests,
-        },
-        null,
-        2
-      )
-    );
-  });
-});
-```
-
-## Applying This Pattern to Other Projects
-
-To apply this testing pattern to a new project:
-
-1. **Copy `src/lib/test.utils.ts`** to the new project
-2. **Copy `src/lib/env.utils.ts`** to the new project
-3. **Create `src/test.types.ts`** with a `TestId` enum
-4. **Create `scripts/seed.ts`** with test data
-5. **Add data-testid attributes** to components using the enum
-6. **Write tests** following the patterns in this document
-7. **Configure Playwright** with proper environment variables
-8. **Reference this document** when writing new tests
-
-This approach ensures consistent, maintainable, and reliable tests across all projects.
-
-## Payment Flow Testing Methodology
-
-### Complete Payment Pathway Verification
-
-The payment testing strategy uses a **layered approach** to verify the complete payment flow from user action through Stripe integration to database updates. This ensures that if all tests pass, only infrastructure configuration (not code changes) is needed for production.
-
-### Three-Layer Testing Strategy
-
-**Layer 1: E2E User Workflows** ([e2e/booking-payment.spec.ts](../e2e/booking-payment.spec.ts))
-
-- Player creates booking offer via UI
-- Coach accepts offer in browser
-- Stripe redirect verified
-- Success page displays after payment
-
-**Layer 2: Stripe API Integration** ([**tests**/create-coach-booking-integration.test.ts](../__tests__/create-coach-booking-integration.test.ts))
-
-- Edge function creates real Stripe checkout session
-- Verifies 10% application fee set in Stripe API call
-- Confirms transfer destination = coach's Stripe Connect account
-- Validates metadata passed for webhook reconciliation
-
-**Layer 3: Webhook Processing** ([**tests**/stripe-webhook.test.ts](../__tests__/stripe-webhook.test.ts))
-
-- Simulates `checkout.session.completed` webhook from Stripe
-- Verifies booking status updates from "pending" → "confirmed"
-- Confirms `stripe_payment_intent_id` saved to database
-- Tests metadata extraction from webhook event
-
-### Complete Flow Verification
-
-```
-[E2E Test] Player creates offer
-     ↓
-[E2E Test] Coach accepts & clicks "Pay"
-     ↓
-[Integration Test] Edge function creates Stripe session
-                   - application_fee_amount = 10% ✓
-                   - transfer_data.destination = coach account ✓
-                   - metadata.booking_id = UUID ✓
-     ↓
-[User completes payment in Stripe - not tested, Stripe's responsibility]
-     ↓
-[Webhook Test] checkout.session.completed webhook received
-               - Extracts booking_id from metadata ✓
-               - Updates booking.status = "confirmed" ✓
-               - Saves payment_intent_id ✓
-     ↓
-[E2E Test] Success page displays
-```
-
-### Why This Approach Works
-
-**Tests verify YOUR code logic:**
-
-- Fee calculations (unit tests)
-- Stripe API calls with correct parameters (integration tests)
-- Webhook handler business logic (webhook tests)
-- UI workflows (E2E tests)
-
-**Tests DON'T verify Stripe's infrastructure (not your responsibility):**
-
-- Actual payment processing (Stripe's responsibility - they test this)
-- Webhook HTTP delivery from Stripe servers (Stripe's responsibility - they test this)
-- Production webhook endpoint accessibility (DevOps configuration)
-
-### Production Readiness Guarantee
-
-**If all automated tests pass, your development work is 100% complete.**
-
-The tests verify every line of YOUR code:
-
-- ✅ Fee calculations and business logic
-- ✅ Stripe API integration (creates real sessions on Stripe's test servers)
-- ✅ Webhook handler processes events correctly
-- ✅ Database updates work as expected
-- ✅ UI workflows function properly
-
-**Remaining work is infrastructure/deployment (NOT development):**
-
-1. Replace test API keys with live keys (configuration)
-2. Configure production webhook endpoint in Stripe Dashboard (configuration)
-3. Set production webhook secret in environment (configuration)
-
-These are deployment configuration steps, not code changes. Your code is proven correct by the automated test suite.
-
-### How Tests Use Real Stripe API
-
-The integration tests call the **actual Stripe API** (test mode):
-
-```typescript
-// Your edge function makes a REAL network request to Stripe
-await stripe.checkout.sessions.create({...})
-  ↓
-// Stripe creates a REAL session on their servers (test mode)
-  ↓
-// Test retrieves the REAL session data from Stripe
-const session = await stripe.checkout.sessions.retrieve(sessionId)
-  ↓
-// Verifies the REAL data Stripe stored
-expect(session.payment_intent_data.application_fee_amount).toBe(1500)
-```
-
-This is not mocked - your code talks to real Stripe servers using test API keys.
-
-## Test Utilities Reference
-
-All test helper functions are centralized in [src/lib/test.utils.ts](../src/lib/test.utils.ts).
-
-## Playwright Configuration
-
-### Reporter Configuration
-
-The Playwright configuration ([playwright.config.ts](../playwright.config.ts)) uses only the minimal reporter to display clean, file-based logging output:
-
-```typescript
-reporter: [["./e2e/utils/minimal-reporter.ts"]];
-```
-
-**Why only minimal reporter?**
-
-- **Clean terminal output**: Shows only essential test progress and final summary
-- **No browser popups**: The HTML reporter (`['html']`) opens a browser after tests complete, which interrupts the workflow
-- **File-based logging**: All test results are captured in JSON files and aggregated by the minimal reporter
-- **CI/CD friendly**: Terminal-only output works perfectly in continuous integration environments
-
-**To add HTML reporter (not recommended):**
-
-If you need the HTML report for debugging, you can temporarily add it:
-
-```typescript
-reporter: [["./e2e/utils/minimal-reporter.ts"], ["html"]];
-```
-
-This will open a browser with detailed test results after each test run. Remove `['html']` to disable browser summaries.
-
-## Test Execution
-
-Run all tests: `npm run test`
-
-Individual test commands documented in [Tests.md](Tests.md)
-
-### Running Tests in Headed Mode
-
-By default, all e2e tests run in headless mode (no visible browser window). To run tests in headed mode and see the browser window during test execution, use the `:headed` script variants:
-
-```bash
-npm run test:e2e:partners:headed
-npm run test:e2e:booking:headed
-npm run test:e2e:coaches:headed
-npm run test:e2e:auth:headed
-```
-
-All major e2e test suites have corresponding `:headed` variants available. See [Tests.md](Tests.md) for the complete list of available test commands.
-
-## Test Log Aggregation
-
-### Overview
-
-All test executions write detailed logs to `logs/tests/{test-name}/{timestamp}.txt`. The test log aggregation script consolidates the latest logs from each test suite into a single summary file for easy review.
-
-### Aggregation Script
-
-**Command:** `npm run test:summary`
-
-This script:
-
-1. Scans all test log directories in `logs/tests/`
-2. Identifies the latest log file for each test suite (based on timestamp)
-3. Aggregates all latest logs into a single summary file
-4. Saves the summary to `logs/tests/summary/{timestamp}.txt`
-5. Displays overall statistics in the terminal
-
-### Output Structure
-
-The aggregated summary file includes:
-
-**Header Section:**
-
-- Generation timestamp
-- Overall statistics (total suites, tests passed/failed, pass rate)
-
-**Per-Test Section:**
-Each test suite section contains:
-
-- Test suite name
-- File path (e.g., `e2e/auth.spec.ts`)
-- Run command (e.g., `npm run test:e2e:auth`)
-- Last run timestamp
-- Log file path
-- Complete test execution log
-
-**Example Summary Structure:**
-
-```
-OVERALL SUMMARY
-Total Test Suites:        6
-Suites with Logs:         5
-Suites without Logs:      1
-Total Tests:              124
-Passed:                   120
-Failed:                   4
-Pass Rate:                96.8%
-─────────────────────────────────────────────────────────────────────
-
-Authentication Flow
-File:      e2e/auth.spec.ts
-Command:   npm run test:e2e:auth
-Last Run:  2025-10-31 13-10-24-772
-Log File:  logs/tests/auth/2025-10-31T13-10-24-772Z.txt
-─────────────────────────────────────────────────────────────────────
-
-Test Execution Report
-Execution Time: 2025-10-31T13:10:24.772Z
-...
-```
-
-### Configured Test Suites
-
-The script aggregates logs from these test suites:
-
-- Authentication Flow (`logs/tests/auth/`)
-- Find Partners Pathway (`logs/tests/find-partners-onboarding/`)
-- Find Partners Algorithm Unit (`logs/tests/find-partners-unit/`)
-- Coach Booking & Payment (`logs/tests/booking-payment/`)
-- Subscription Management (`logs/tests/subscription/`)
-- Courts Discovery (`logs/tests/courts/`)
-
-### Adding New Test Suites
-
-To include additional test suites in the aggregation:
-
-1. Open `scripts/aggregate-test-logs.js`
-2. Add a new entry to the `TEST_CONFIGS` array:
-
-```javascript
-{
-  name: 'Test Suite Name',
-  dir: 'log-directory-name',
-  file: 'e2e/test-file.spec.ts',
-  command: 'npm run test:command'
-}
-```
-
-3. The script will automatically include this suite in future aggregations
-
-### Use Cases
-
-**Review Latest Test Results:**
-After running multiple test suites, use `npm run test:summary` to see all results in one place without searching through individual log directories.
-
-**CI/CD Integration:**
-Aggregate test logs after a full test suite run to generate a single artifact for build reports.
-
-**Test History:**
-The summary files are timestamped, creating a historical record of test runs over time.
-
-**Quick Health Check:**
-The terminal output provides immediate visibility into overall test health across all suites.
+1. Make test changes in `e2e/{feature}.spec.ts`
+2. Update corresponding section in `docs/Tests.md`
+3. Ensure test name and pass condition match
+4. Verify Test Index is up to date
+5. Run tests to confirm behavior matches documentation
