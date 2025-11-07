@@ -122,6 +122,18 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 10000,
     });
 
+    await expect(page.getByTestId(TestId.TODO_LIST)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId(TestId.TODO_INPUT)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId(TestId.TAMAGOTCHI_CONTAINER)).toBeVisible({
+      timeout: 10000,
+    });
+
     await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
@@ -139,8 +151,6 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 10000,
       waitUntil: "domcontentloaded",
     });
-
-    await page.waitForTimeout(1500);
 
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,
@@ -169,9 +179,19 @@ test.describe("Authentication Flow Tests", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await page.waitForTimeout(1500);
-
     await expect(page.getByTestId(TestId.AVATAR_MENU_TRIGGER)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId(TestId.TODO_LIST)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId(TestId.TODO_INPUT)).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId(TestId.TAMAGOTCHI_CONTAINER)).toBeVisible({
       timeout: 10000,
     });
 
@@ -192,8 +212,6 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 10000,
       waitUntil: "domcontentloaded",
     });
-
-    await page.waitForTimeout(1500);
 
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,

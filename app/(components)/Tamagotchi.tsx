@@ -1,27 +1,27 @@
 "use client";
 
-import { TestId } from "@/test.types";
-import { useMemo, useState } from "react";
-import {
-  useFeedTamagotchi,
-  useGetTamagotchi,
-  useHungerTimer,
-  useUpdateTamagotchiSpecies,
-  useUpdateTamagotchiAge,
-} from "./Tamagotchi.hooks";
-import { useTamagotchiSSE } from "./Tamagotchi.sse";
-import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
-import {
-  getSpriteForTamagotchi,
-  type TamagotchiSpecies,
-} from "./Tamagotchi.utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { TestId } from "@/test.types";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SpriteGridViewer } from "./SpriteGridViewer";
+import {
+  useFeedTamagotchi,
+  useGetTamagotchi,
+  useHungerTimer,
+  useUpdateTamagotchiAge,
+  useUpdateTamagotchiSpecies,
+} from "./Tamagotchi.hooks";
+import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
+import { useTamagotchiSSE } from "./Tamagotchi.sse";
+import {
+  getSpriteForTamagotchi,
+  type TamagotchiSpecies,
+} from "./Tamagotchi.utils";
 
 function SpriteRenderer({
   grid,
@@ -99,6 +99,8 @@ export function Tamagotchi() {
   useHungerTimer();
 
   const [showSpriteGrid, setShowSpriteGrid] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const screenRef = useRef<HTMLDivElement>(null);
 
   const color = tamagotchi?.color || "#1f2937";
   const species = (tamagotchi?.species || "species0") as TamagotchiSpecies;
@@ -109,6 +111,39 @@ export function Tamagotchi() {
     [species, age]
   );
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (age === 0) {
+        setPosition({ x: 0, y: 0 });
+        return;
+      }
+
+      if (!screenRef.current) return;
+
+      const screenRect = screenRef.current.getBoundingClientRect();
+      const spriteSize = currentSprite.length * 3 + (currentSprite.length - 1);
+
+      const maxX = Math.floor((screenRect.width - spriteSize) / 2);
+      const maxY = Math.floor((screenRect.height - spriteSize) / 2);
+
+      setPosition((prev) => {
+        const directions = [-10, 0, 10];
+        const deltaX =
+          directions[Math.floor(Math.random() * directions.length)];
+        const deltaY =
+          directions[Math.floor(Math.random() * directions.length)];
+
+        const newX = Math.max(-maxX, Math.min(maxX, prev.x + deltaX));
+        const newY = Math.max(-maxY, Math.min(maxY, prev.y + deltaY));
+
+        return { x: newX, y: newY };
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [age, currentSprite.length]);
+
+  console.log({ position });
   const handleFeed = () => {
     if (!isFeeding) {
       feedTamagotchi();
@@ -144,6 +179,7 @@ export function Tamagotchi() {
 
         <div className="relative w-full h-full flex flex-col items-center justify-center pb-10 gap-2">
           <div
+            ref={screenRef}
             className="flex flex-col justify-center items-center bg-gradient-to-br from-lime-50 via-amber-50 to-lime-100 rounded-xl p-4 w-full shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)]"
             style={{ minHeight: "240px" }}
             data-testid={TestId.TAMAGOTCHI_SCREEN}
@@ -152,11 +188,18 @@ export function Tamagotchi() {
               className="flex items-center justify-center"
               style={{ minHeight: "160px" }}
             >
-              <SpriteRenderer
-                grid={currentSprite}
-                color={color}
-                data-testid={TestId.TAMAGOTCHI_ANIMATION}
-              />
+              <div
+                style={{
+                  transform: `translate(${position.x}px, ${position.y}px)`,
+                  transition: "transform 1s linear",
+                }}
+              >
+                <SpriteRenderer
+                  grid={currentSprite}
+                  color={color}
+                  data-testid={TestId.TAMAGOTCHI_ANIMATION}
+                />
+              </div>
             </div>
             <HungerBar
               level={tamagotchi?.hunger || 0}
@@ -247,7 +290,12 @@ export function Tamagotchi() {
         </div>
       )}
 
-      {showSpriteGrid && <SpriteGridViewer color={color} onClose={() => setShowSpriteGrid(false)} />}
+      {showSpriteGrid && (
+        <SpriteGridViewer
+          color={color}
+          onClose={() => setShowSpriteGrid(false)}
+        />
+      )}
     </div>
   );
 }
