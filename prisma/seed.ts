@@ -24,14 +24,19 @@ async function main() {
   });
 
   if (!e2eTestUser) {
-    const result = await auth.api.signUpEmail({
+    await auth.api.signUpEmail({
       body: {
         email: "e2e-test@example.com",
         password: E2E_TEST_PASSWORD,
         name: "E2E Test User",
       },
     });
-    e2eTestUser = result.user;
+    e2eTestUser = await prisma.user.findUnique({
+      where: { email: "e2e-test@example.com" },
+    });
+    if (!e2eTestUser) {
+      throw new Error("Failed to create e2e test user");
+    }
   }
 
   const org1 = await prisma.organization.upsert({

@@ -108,9 +108,11 @@ class ConsolidatedReporter implements Reporter {
     console.log(`   - test-report.json (complete data)`);
     console.log(`   - README.md (human-readable summary)`);
     if (failed > 0) {
-      console.log(
-        `   - ${screenshots.length + videos.length + traces.length} artifacts`
+      const artifactCount = this.testResults.reduce(
+        (sum, t) => sum + t.screenshots.length + t.videos.length + t.traces.length,
+        0
       );
+      console.log(`   - ${artifactCount} artifacts`);
     }
   }
 

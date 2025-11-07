@@ -151,6 +151,7 @@ test.describe("Authentication Flow Tests", () => {
     test.setTimeout(45000);
 
     await page.goto("/sign-in");
+    await page.waitForURL(/\/sign-in/, { timeout: 10000 });
 
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,

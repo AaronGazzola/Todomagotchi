@@ -126,6 +126,7 @@ test.describe("Organization Invitation Flow", () => {
     });
 
     const orgSelect = pageA.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+    await expect(orgSelect.locator("option")).toHaveCount(2, { timeout: 10000 });
     const orgAId = await orgSelect.inputValue();
 
     await pageA.getByTestId(TestId.INVITE_USERS_BUTTON).click();
@@ -176,8 +177,7 @@ test.describe("Organization Invitation Flow", () => {
     });
 
     const orgSelectB = pageB.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
-    const options = await orgSelectB.locator("option").all();
-    expect(options.length).toBeGreaterThanOrEqual(2);
+    await expect(orgSelectB.locator("option")).toHaveCount(3, { timeout: 10000 });
 
     await orgSelectB.selectOption(orgAId);
 
@@ -201,6 +201,7 @@ test.describe("Organization Invitation Flow", () => {
 
     await pageB.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
     const userBOrgSelect = pageB.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+    await expect(userBOrgSelect.locator("option")).toHaveCount(3, { timeout: 10000 });
     const userBOrgId = await userBOrgSelect.locator("option").nth(0).getAttribute("value");
 
     if (userBOrgId && userBOrgId !== orgAId) {
@@ -249,6 +250,8 @@ test.describe("Organization Invitation Flow", () => {
     });
 
     await pageA.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
+    const orgSelectA = pageA.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+    await expect(orgSelectA.locator("option")).toHaveCount(2, { timeout: 10000 });
     await pageA.getByTestId(TestId.INVITE_USERS_BUTTON).click();
     await pageA.getByTestId(TestId.INVITE_EMAIL_INPUT).fill(uniqueUserBEmail);
     await pageA.getByTestId(TestId.INVITE_SEND_BUTTON).click();

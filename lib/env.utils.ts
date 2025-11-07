@@ -11,7 +11,7 @@ export const ENV = {
     ? ""
     : process.env.BETTER_AUTH_URL || "",
   NEXT_PUBLIC_APP_URL: isBrowser
-    ? (process as any).env?.NEXT_PUBLIC_APP_URL || ""
+    ? (process as NodeJS.Process).env?.NEXT_PUBLIC_APP_URL || ""
     : process.env.NEXT_PUBLIC_APP_URL || "",
 };
 
