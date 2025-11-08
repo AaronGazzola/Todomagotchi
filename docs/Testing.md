@@ -98,6 +98,63 @@ await page.locator(".css-class").fill(value);
 await expect(page.locator('role=alert, [role="status"]').first()).toBeVisible();
 ```
 
+### Rule 2a: Never Read Text Content - Only Use Data Attributes
+
+Tests must **never** read text content from elements to make assertions or verify behavior. All information needed by tests must be exposed through data attributes (`data-testid`, `data-state`, etc.).
+
+**Why:** Text content is:
+
+- Subject to frequent UI/UX changes
+- Fragile and breaks tests unnecessarily
+- Not reliable for determining application state
+- May change with localization/internationalization
+
+**Correct - Using data attributes:**
+
+```typescript
+const playersList = page.locator(`[data-testid="${TestId.PLAYERS_LIST}"]`);
+const listState = await playersList.getAttribute("data-state");
+const isShowingFallback = listState === "nearby-fallback";
+
+await expect(playersList).toHaveAttribute("data-state", "nearby-fallback");
+```
+
+**Incorrect - Reading text content:**
+
+```typescript
+const message = page.locator(`[data-testid="${TestId.MESSAGE}"]`);
+const messageText = await message.textContent();
+const hasCorrectMessage = messageText?.includes("No players found") ?? false;
+```
+
+**How to Verify Different UI States:**
+
+Instead of checking message text, add `data-state` attributes to elements:
+
+```typescript
+<div
+  data-testid={TestId.RESULTS_CONTAINER}
+  data-state={
+    hasExactMatches
+      ? "exact-matches"
+      : hasNearbyMatches
+      ? "nearby-fallback"
+      : "no-matches"
+  }
+>
+  {/* UI content with messages */}
+</div>
+```
+
+Then test the state:
+
+```typescript
+const container = page.locator(`[data-testid="${TestId.RESULTS_CONTAINER}"]`);
+await expect(container).toHaveAttribute("data-state", "nearby-fallback");
+```
+
+**Acceptable Exception:** Visual regression testing with screenshots where the actual rendered UI is being verified, not parsed.
+
 ### Rule 3: Share Data Attribute Values
 
 Data attribute values **must** be imported into the test and the component from the shared `test.types.ts` file.
@@ -221,6 +278,8 @@ export async function waitForFormState(
 
 Always prefer explicit timeout parameters over hard-coded wait periods.
 
+**GLOBAL TIMEOUT STANDARD: All timeouts in tests must be set to 10 seconds (10000ms).**
+
 **Correct:**
 
 ```typescript
@@ -243,11 +302,13 @@ await new Promise((resolve) => setTimeout(resolve, 5000));
 
 **Timeout Guidelines:**
 
-- **All Operations:** 10 seconds (10000ms)
+- **All Operations:** 10 seconds (10000ms) - NO EXCEPTIONS
   - UI Elements visibility checks
   - Navigation and URL changes
   - Complex operations
   - Database operations
+  - Element text content checks
+  - All other asynchronous operations
 
 ### Rule 5: Isolate Test Data
 
@@ -293,6 +354,105 @@ test("test feature", async ({ page }) => {
   ...
 });
 ```
+
+### Rule 7: Never Take Manual Screenshots
+
+Tests must **never** manually capture screenshots using `page.screenshot()`. Playwright automatically captures screenshots on failure based on the configuration (`screenshot: 'only-on-failure'` in `playwright.config.ts`).
+
+**Why:**
+
+- Manual screenshots clutter test results directories
+- Automatic screenshots capture actual failure state
+- Manual screenshots happen at arbitrary points, not at failure
+- Creates inconsistent test output
+
+**Incorrect:**
+
+```typescript
+await page.screenshot({ path: "debug.png" });
+throw new Error("Something failed");
+```
+
+**Correct:**
+
+```typescript
+throw new Error("Something failed");
+```
+
+Playwright will automatically capture a screenshot when the test fails, saving it to the test results directory with proper naming and organization.
+
+### Rule 8: Fail Immediately on First Assertion Failure
+
+When a test case fails, the whole test suite must immediately fail and not continue. Tests must **never** collect failures in an array and continue execution.
+
+**Why:**
+
+- Faster feedback - test stops at first failure point
+- Clearer debugging - exact failure point is obvious
+- Simpler test output - only one failure to analyze
+- More maintainable - less code and complexity
+- Prevents cascading failures from obscuring root cause
+
+**Incorrect - Collecting failures:**
+
+```typescript
+test("should perform multiple checks", async ({ page }) => {
+  const failures: string[] = [];
+
+  const isVisible = await page.getByTestId(TestId.ELEMENT).isVisible();
+  if (!isVisible) {
+    failures.push("Element not visible");
+  }
+
+  const hasText =
+    (await page.getByTestId(TestId.ELEMENT).textContent()) === "Expected";
+  if (!hasText) {
+    failures.push("Element has wrong text");
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Test failed: ${failures.join("; ")}`);
+  }
+});
+```
+
+**Correct - Failing immediately:**
+
+```typescript
+test("should perform multiple checks", async ({ page }) => {
+  const isVisible = await page.getByTestId(TestId.ELEMENT).isVisible();
+  if (!isVisible) {
+    throw new Error("Element not visible");
+  }
+
+  const hasText =
+    (await page.getByTestId(TestId.ELEMENT).textContent()) === "Expected";
+  if (!hasText) {
+    throw new Error("Element has wrong text");
+  }
+});
+```
+
+**Alternative with expect (recommended):**
+
+```typescript
+test("should perform multiple checks", async ({ page }) => {
+  await expect(page.getByTestId(TestId.ELEMENT)).toBeVisible({
+    timeout: 10000,
+  });
+  await expect(page.getByTestId(TestId.ELEMENT)).toHaveText("Expected", {
+    timeout: 10000,
+  });
+});
+```
+
+**Benefits:**
+
+- Test stops immediately at the point of failure
+- Screenshots capture the exact state when first assertion failed
+- Error message is specific to the actual failure
+- No need to parse through multiple failure messages
+- Diagnostic data (console logs, network failures) is relevant to the single failure point
 
 ## Data Attribute System
 
@@ -348,6 +508,60 @@ await page.getByTestId(TestId.NEW_ELEMENT).click();
 ```
 
 ## Database Testing Patterns
+
+### Database Seeding Requirements
+
+**Critical Rules for Seed Scripts:**
+
+1. **Fresh Database Assumption**
+
+   - Seed scripts are ONLY run after a complete database reset
+   - Scripts must use `insert()` operations, NOT `upsert()`
+   - Database is guaranteed to be empty when seed runs
+
+2. **Fail-Fast Error Handling**
+
+   - Every database operation must check for errors
+   - Any error must immediately throw and halt the entire seed process
+   - No partial seeding is acceptable - all or nothing
+
+3. **Error Checking Pattern**
+
+   ```typescript
+   const { error } = await supabase.from("table").insert(data);
+   if (error) {
+     console.error(`Failed to create record for ${identifier}`);
+     throw error;
+   }
+   ```
+
+4. **Never Suppress Errors**
+
+   - Do NOT catch errors silently
+   - Do NOT continue execution after an error
+   - Do NOT use try-catch blocks to hide failures
+   - Let errors propagate to fail the seed script
+
+5. **Verification**
+
+   - Seed script must exit with non-zero code on any failure
+   - Check console output for error messages
+   - Database should be in consistent state (all data or no data)
+
+6. **Single Source of Truth**
+   - ALL seed data MUST be sourced from `scripts/seed-data.ts`
+   - Test files MUST import PLAYER_DATA, COACH_DATA, etc. from seed-data.ts
+   - NEVER create hardcoded seed data arrays in test files
+   - Cleanup functions MUST also source from seed-data.ts
+   - This ensures profile data (UTR, gender, etc.) matches preference data
+
+**Why These Rules:**
+
+- Tests expect specific seed data to exist
+- Partial seeding causes cryptic test failures
+- Failing fast reveals configuration issues immediately
+- Insert-only is safer and clearer than upsert after reset
+- Single source of truth prevents mismatches between tables
 
 ### Direct PrismaClient Usage
 
@@ -538,12 +752,111 @@ test("should handle unique test case", async ({ page }) => {
 });
 ```
 
+## Diagnostic Data Capture
+
+### Automatic Diagnostic Collection
+
+The test infrastructure automatically captures comprehensive diagnostic data for every test using custom Playwright fixtures (`e2e/utils/test-fixtures.ts`). This data is collected in real-time during test execution and included in test reports for failed tests.
+
+### What Gets Captured
+
+**1. Browser Console Logs**
+
+- All console messages (log, warn, error, info)
+- Source location (file and line number)
+- Timestamp for each message
+- Automatically filtered to show errors and warnings first in reports
+
+**2. Page Errors**
+
+- JavaScript exceptions and errors
+- Full stack traces
+- Timestamp when error occurred
+- Unhandled promise rejections
+
+**3. Network Failures**
+
+- Failed HTTP requests (status >= 400)
+- Request method and URL
+- Status code and status text
+- Response body (for JSON and text responses)
+- Timestamp for each request
+
+**4. Test Execution Steps**
+
+- Step-by-step timeline of test actions
+- Duration for each step
+- Which step failed (if applicable)
+- Nested sub-steps for complex operations
+
+**5. Test Context**
+
+- User information (from reporter extraction methods)
+- Test conditions and preferences
+- Expected vs observed behavior
+- Custom metadata
+
+**6. DOM State**
+
+- Accessibility tree snapshots
+- Element visibility states
+- Data attribute values
+- Component states at failure point
+
+### Using Diagnostic Data
+
+The `diagnostics` fixture is automatically available in every test:
+
+```typescript
+test("should perform action", async ({ page, diagnostics }) => {
+  diagnostics.consoleLogs; // Array of console messages
+  diagnostics.pageErrors; // Array of page errors
+  diagnostics.networkFailures; // Array of failed requests
+  diagnostics.testContext; // Test metadata
+});
+```
+
+**Note:** You typically don't need to access the `diagnostics` fixture directly. It's automatically attached to test results and included in the reporter output for failed tests.
+
+### How It Works
+
+1. **Test Fixtures** (`test-fixtures.ts`) extend Playwright's base test
+2. **Event Listeners** are attached to the page object:
+   - `page.on('console', ...)` - Captures console output
+   - `page.on('pageerror', ...)` - Captures page errors
+   - `page.on('response', ...)` - Captures network failures
+3. **Data Collection** happens automatically during test execution
+4. **Attachment** to TestInfo occurs only for failed tests
+5. **Reporter Extraction** (`consolidated-reporter.ts`) reads diagnostic data
+6. **README Generation** includes all diagnostic information
+
+### Viewing Diagnostic Data
+
+**In test-report.json:**
+
+```json
+{
+  "title": "should display player cards",
+  "status": "failed",
+  "consoleLogs": [...],
+  "pageErrors": [...],
+  "networkFailures": [...],
+  "steps": [...]
+}
+```
+
+**In README.md:**
+All diagnostic data is formatted into human-readable sections with code blocks, timestamps, and clear headers.
+
+**In Trace Files:**
+Use `npx playwright show-trace {file}.zip` for interactive debugging with full timeline, network requests, and DOM snapshots.
+
 ## Test Implementation Patterns
 
 ### Test Structure
 
 ```typescript
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./utils/test-fixtures";
 import { TestId } from "../test.types";
 import { PrismaClient } from "@prisma/client";
 
@@ -559,7 +872,7 @@ test.describe("Feature Name Tests", () => {
     await prisma.$disconnect();
   });
 
-  test("should perform expected behavior", async ({ page }) => {
+  test("should perform expected behavior", async ({ page, diagnostics }) => {
     await page.goto("/");
     await page.getByTestId(TestId.ELEMENT).click();
     await expect(page.getByTestId(TestId.RESULT)).toBeVisible({
@@ -568,6 +881,8 @@ test.describe("Feature Name Tests", () => {
   });
 });
 ```
+
+**IMPORTANT:** Always import `test` and `expect` from `"./utils/test-fixtures"`, NOT from `"@playwright/test"`. The custom fixtures automatically capture diagnostic data including browser console logs, page errors, and network failures.
 
 ### Navigation Patterns
 
@@ -617,6 +932,30 @@ await expect(page.getByTestId(TestId.ELEMENT)).toBeVisible({
   timeout: 10000,
 });
 ```
+
+**Wait for Button Visibility (Robust Pattern):**
+
+For auth state-dependent buttons (Sign In/Sign Out), use the `waitForButtonVisibility` helper which combines `waitFor` with `isVisible`:
+
+```typescript
+import { waitForButtonVisibility } from "@/lib/test.utils";
+
+const signInButtonVisible = await waitForButtonVisibility(
+  page,
+  TestId.NAV_SIGNIN_BUTTON,
+  10000
+);
+if (!signInButtonVisible) {
+  throw new Error("Sign in button not visible");
+}
+```
+
+**Why this pattern:**
+
+- Combines `element.waitFor()` + `isVisible()` for more reliable checks
+- Handles auth state transitions where UI updates asynchronously
+- Returns boolean for easy conditional logic
+- Prevents false negatives from DOM state timing issues
 
 **Verify Text Content:**
 
@@ -731,7 +1070,74 @@ npm run test:unit:feature
 
 ```bash
 npm run test:headed
+npm run test:e2e:feature:headed
 ```
+
+**Run with Trace Mode:**
+
+```bash
+npm run test:e2e:feature:trace
+```
+
+### Test Execution Modes
+
+**Standard Mode (Default):**
+
+- Headless browser execution
+- Screenshots captured on failure
+- Traces captured on first retry only
+- No video recording
+- Fastest execution
+
+**Headed Mode (`:headed`):**
+
+- Browser window visible during test execution
+- Useful for watching tests run in real-time
+- Screenshots captured on failure
+- Traces captured on first retry only
+- No video recording
+- Example: `npm run test:e2e:auth:headed`
+
+**Trace Mode (`:trace`):**
+
+- Headless browser execution
+- Full Playwright trace captured for ALL tests (not just retries)
+- Video recording enabled for ALL tests
+- Screenshots captured on failure
+- Best for post-mortem debugging of complex issues
+- Generates `.zip` trace files viewable with `npx playwright show-trace`
+- Example: `npm run test:e2e:auth:trace`
+
+**When to Use Each Mode:**
+
+- **Standard:** Normal test execution and CI/CD pipelines
+- **Headed:** Quick visual debugging, seeing UI interactions in real-time
+- **Trace:** Deep debugging when tests fail or hang, provides complete timeline of actions, network requests, and DOM changes
+
+**Viewing Trace Files:**
+
+After running a test in trace mode:
+
+```bash
+npm run test:e2e:auth:trace
+```
+
+The trace file will be in the test results directory. To view it:
+
+```bash
+npx playwright show-trace test-results/{timestamp}_auth.spec/artifacts/trace.zip
+```
+
+Or find it in the README.md under the "Failed Tests" section, which lists all available trace files.
+
+The trace viewer provides:
+
+- Timeline of all test actions
+- Network request/response details
+- DOM snapshots at each step
+- Console logs and errors
+- Visual screenshots at each action
+- Exact location where test hung or failed
 
 ### Test Output
 
@@ -754,9 +1160,17 @@ The consolidated reporter classifies test results as follows:
 
 **Artifact Configuration:**
 
+Standard mode:
+
 - **Screenshots:** Only on failure
-- **Traces:** Only on first retry (not all failures)
+- **Traces:** Only on first retry
 - **Videos:** Disabled
+
+Trace mode (`:trace`):
+
+- **Screenshots:** Only on failure
+- **Traces:** Captured for ALL tests
+- **Videos:** Captured for ALL tests
 
 ### CI vs Local Execution
 
@@ -926,9 +1340,11 @@ The consolidated reporter generates a JSON file with complete test data:
 
 - `error`: Only present if test failed (contains error message)
 - `errorStack`: Only present if test failed (contains complete stack trace with file paths and line numbers)
-- `screenshots`: Only present if screenshots were captured
-- `videos`: Only present if videos were recorded
-- `traces`: Only present if traces were captured
+- `screenshots`: Only present if screenshots were captured (on failure)
+- `videos`: Only present if videos were recorded (trace mode only)
+- `traces`: Only present if traces were captured (on first retry in standard mode, or for all tests in trace mode)
+- `stdout`: Present for all tests that have console output (not limited to failures)
+- `stderr`: Present for all tests that have stderr output (not limited to failures)
 
 ### README.md Format
 
@@ -953,7 +1369,8 @@ For each failed test, the following information is included:
 - **Error Message** - The primary error message (in code block format)
 - **Stack Trace** - Complete stack trace showing the exact line where the failure occurred
 - **Screenshots** - List of captured screenshots (only on failure)
-- **Traces** - List of debug traces (only on first retry)
+- **Traces** - List of debug traces (on first retry in standard mode, or for all tests in trace mode)
+- **Videos** - List of video recordings (only in trace mode)
 
 **Example:**
 
@@ -962,6 +1379,21 @@ For each failed test, the following information is included:
 
 **File:** e2e/find-partners.spec.ts
 **Duration:** 30151ms
+**Status:** TIMEOUT
+
+**Test Setup:**
+
+- **User:** beginner.singles.casual.male.2000@test.com
+- **Conditions:** skill=beginner, play=singles, session=casual, postcode=2000
+- **Expected:** Display at least 2 player cards with names and skill levels
+- **Observed:** Player cards did not appear within timeout period
+
+**Execution Timeline:**
+
+1. ✓ Navigate to /find-partners (1234ms)
+2. ✓ Sign in as test user (2567ms)
+3. ✓ Wait for preferences form (456ms)
+4. ✗ Wait for player cards to appear (TIMEOUT at 10000ms) - locator.waitFor: Timeout 10000ms exceeded
 
 **Error Message:**
 ```
@@ -979,9 +1411,52 @@ at setPreferences (/path/to/test.ts:210:10)
 
 ```
 
-**Screenshots:**
-- test-failed-1.png
+**Browser Console Errors:**
 ```
+
+[ERROR] Failed to fetch: GET /api/find-partners 500
+Location: https://example.com/app.js:123
+[ERROR] Uncaught TypeError: Cannot read property 'name' of undefined
+Location: https://example.com/components/PlayerCard.js:45
+
+```
+
+**Network Failures:**
+
+- **GET** https://api.example.com/find-partners
+  - Status: 500 Internal Server Error
+  - Response:
+```
+
+{
+"error": "Database connection failed",
+"details": "Connection timeout after 5000ms"
+}
+
+```
+
+**DOM State at Failure:**
+
+```
+
+PlayersList [data-testid="players-list"][data-state="loading"]
+LoadingSpinner [data-testid="loading-spinner"]
+Text: "Finding players near you..."
+
+````
+
+**Artifacts:**
+
+**Screenshots:**
+- ![test-failed-1.png](test-failed-1.png)
+
+**Trace Files:**
+- trace.zip
+  ```bash
+  npx playwright show-trace test-results/2025-11-07_04-15-21-441_find-partners.spec/trace.zip
+````
+
+````
 
 **4. All Tests:**
 
@@ -996,8 +1471,19 @@ The README includes ALL available diagnostic data for failed tests, ensuring tha
 1. **Error messages** - What went wrong (high-level)
 2. **Stack traces** - Exactly where it went wrong (file and line number)
 3. **Screenshots** - Visual state when the failure occurred
-4. **Traces** - Playwright traces for step-by-step debugging
-5. **Duration** - Whether timeout-related or immediate failure
+4. **Traces** - Playwright trace files for step-by-step debugging (viewable with `npx playwright show-trace`)
+5. **Videos** - Video recordings of test execution (only in trace mode)
+6. **Duration** - Whether timeout-related or immediate failure
+
+**Using Trace Files from README:**
+
+When a test fails and trace files are captured, the README will list them in the "Failed Tests" section. To view a trace:
+
+```bash
+npx playwright show-trace test-results/{timestamp}_testname.spec/artifacts/trace.zip
+````
+
+This opens an interactive viewer showing the complete timeline of the test execution, making it easy to identify where and why the test failed or hung
 
 This comprehensive approach eliminates the need to cross-reference multiple log files or run additional commands to understand test failures.
 
@@ -1188,3 +1674,192 @@ Tests the feature functionality covering creation, modification, and deletion.
 3. Ensure test name and pass condition match
 4. Verify Test Index is up to date
 5. Run tests to confirm behavior matches documentation
+
+## Test Result Logging and Diagnostics
+
+### TestResultLogger Pattern
+
+For tests with multiple verification points, use `TestResultLogger` to capture detailed sub-test results that appear in the README.
+
+**Basic Setup:**
+
+```typescript
+import {
+  TestResultLogger,
+  logTestResult,
+  formatTestConditions,
+} from "@/lib/test.utils";
+import * as fs from "fs";
+import * as path from "path";
+
+test.describe("Feature Tests", () => {
+  const logger = new TestResultLogger("feature-name");
+
+  test.afterAll(async () => {
+    // Finalize unreached tests (mark as failed if test exited early)
+    logger.finalizeUnreachedTests();
+
+    // Output summary to console (appears in README Console Output section)
+    const summary = logger.getSummary();
+    if (summary) {
+      console.log("\n📊 Test Logger Summary:");
+      console.log(summary);
+    }
+
+    // Write JSON file for consolidated reporter
+    const testResultsDir = path.join(process.cwd(), "test-results");
+    if (!fs.existsSync(testResultsDir)) {
+      fs.mkdirSync(testResultsDir, { recursive: true });
+    }
+
+    const data = logger.getSerializableData();
+    const callTimestamp = Date.now();
+    const callPath = path.join(
+      testResultsDir,
+      `afterall-call-${callTimestamp}.json`
+    );
+
+    fs.writeFileSync(
+      callPath,
+      JSON.stringify(
+        {
+          timestamp: new Date().toISOString(),
+          callId: callTimestamp,
+          stats: data.stats,
+          testsCount: data.tests.length,
+          tests: data.tests,
+          testSuiteName: data.testSuiteName,
+        },
+        null,
+        2
+      )
+    );
+  });
+});
+```
+
+**Logging Test Results:**
+
+```typescript
+test("should perform multiple checks", async ({ page }) => {
+  const failures: string[] = [];
+
+  // Register expected tests (shown if test exits early)
+  logger.registerExpectedTest(
+    "Check 1 - Element visible",
+    formatTestConditions({ userType: "player", page: "home" }),
+    "Element should be visible"
+  );
+  logger.registerExpectedTest(
+    "Check 2 - Correct text",
+    formatTestConditions({ userType: "player", page: "home" }),
+    "Element should have correct text"
+  );
+
+  // Perform check 1
+  let elementVisible = false;
+  try {
+    await expect(page.getByTestId(TestId.ELEMENT)).toBeVisible({
+      timeout: 10000,
+    });
+    elementVisible = true;
+  } catch (error) {
+    elementVisible = false;
+  }
+
+  await logTestResult(
+    logger,
+    page,
+    "Check 1 - Element visible",
+    formatTestConditions({ userType: "player", page: "home" }),
+    "Element should be visible",
+    elementVisible,
+    "visible",
+    "not found"
+  );
+
+  if (!elementVisible) {
+    failures.push("Element not visible");
+  }
+
+  // Perform check 2
+  const elementText = await page.getByTestId(TestId.ELEMENT).textContent();
+  const hasCorrectText = elementText === "Expected Text";
+
+  await logTestResult(
+    logger,
+    page,
+    "Check 2 - Correct text",
+    formatTestConditions({ userType: "player", page: "home" }),
+    "Element should have correct text",
+    hasCorrectText,
+    `text: ${elementText}`,
+    `incorrect text: ${elementText}`
+  );
+
+  if (!hasCorrectText) {
+    failures.push("Element has incorrect text");
+  }
+
+  // Fail with descriptive message
+  if (failures.length > 0) {
+    throw new Error(`Test failed: ${failures.join("; ")}`);
+  }
+});
+```
+
+**Benefits:**
+
+- **Detailed failure info:** Shows exactly which check failed
+- **Console output:** Summary appears in README Console Output section
+- **Logged Sub-Tests section:** Each `logTestResult()` call appears in README with conditions, expectations, and observations
+- **Screenshots:** Automatically captures screenshots for failed checks
+- **Error toasts:** Captures any error toast messages that appear
+- **Early exit handling:** `registerExpectedTest()` + `finalizeUnreachedTests()` marks tests as failed if test exits before reaching them
+
+**README Output:**
+
+When using this pattern, the README will include:
+
+1. **Console Output section:**
+
+   ```
+   📊 Test Logger Summary:
+
+   5 tests | 4 passed | 1 failed
+
+   Failed Tests:
+
+   3. Check 2 - Correct text
+      Conditions: userType=player, page=home
+      Expected: Element should have correct text
+      Observed: incorrect text: Wrong Text
+      Screenshot: test-results/failures/check-2-correct-text-1234.png
+   ```
+
+2. **Logged Sub-Tests section:**
+
+   - Shows each logged test with ✓/✗ icon
+   - Includes conditions, expected, observed
+   - Links to screenshots for failures
+   - Summary of passed/failed sub-tests
+
+3. **Error Message:**
+   ```
+   Error: Test failed: Element has incorrect text
+   ```
+   (Instead of generic "Test failed - see summary for details")
+
+**Helper Functions:**
+
+- `formatTestConditions(obj)` - Converts object to "key=value, key=value" string
+- `logTestResult(logger, page, name, conditions, expectation, passed, observedSuccess, observedFailure)` - Logs a test result with screenshot capture for failures
+- `captureFailureScreenshot(page, testName)` - Captures screenshot in test-results/failures/
+- `checkForErrorToast(page)` - Checks for visible toast messages
+
+**When to Use:**
+
+- Tests with 3+ verification points
+- Complex flows (signup → signout → signin)
+- Tests where you need to know WHICH specific check failed
+- Tests where early exit could hide failures

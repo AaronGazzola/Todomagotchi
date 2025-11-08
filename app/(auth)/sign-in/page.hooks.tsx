@@ -2,10 +2,11 @@
 
 import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { configuration } from "@/configuration";
-import { signIn } from "@/lib/auth-client";
+import { signIn, organization, getSession } from "@/lib/auth-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SignInData } from "./page.types";
+import { getUserOrganizationsAction } from "@/app/(components)/AvatarMenu.actions";
 
 export const useSignIn = () => {
   const queryClient = useQueryClient();
@@ -20,6 +21,24 @@ export const useSignIn = () => {
 
       if (result.error) {
         throw new Error(result.error.message || "Failed to sign in");
+      }
+
+      let session = await getSession();
+
+      if (!session?.session?.activeOrganizationId) {
+        const { data: organizations } = await getUserOrganizationsAction();
+        if (organizations && Array.isArray(organizations) && organizations.length > 0) {
+          await organization.setActive({ organizationId: organizations[0].id });
+          let retries = 0;
+          while (retries < 10) {
+            session = await getSession();
+            if (session?.session?.activeOrganizationId) {
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+            retries++;
+          }
+        }
       }
 
       return result.data;

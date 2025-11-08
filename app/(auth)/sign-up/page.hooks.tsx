@@ -2,7 +2,7 @@
 
 import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { configuration } from "@/configuration";
-import { organization, signUp } from "@/lib/auth-client";
+import { organization, signUp, getSession } from "@/lib/auth-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createOrganizationAction } from "@/app/(components)/AvatarMenu.actions";
@@ -40,6 +40,15 @@ export const useSignUp = () => {
 
       if (data && typeof data === 'object' && 'id' in data) {
         await organization.setActive({ organizationId: data.id as string });
+        let retries = 0;
+        while (retries < 10) {
+          const session = await getSession();
+          if (session?.session?.activeOrganizationId) {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 200));
+          retries++;
+        }
       }
 
       return signUpResult.data;

@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./utils/test-fixtures";
 import { TestId } from "../test.types";
+import { cleanupAuthTestUsers } from "./utils/cleanup-auth-users";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -10,91 +11,17 @@ const TEST_PASSWORD = "TestPassword123!";
 const EXISTING_USER_EMAIL = "e2e-test@example.com";
 const EXISTING_USER_PASSWORD = "E2ETestPass123!";
 
-async function cleanupTestUsers() {
-  await prisma.member.deleteMany({
-    where: {
-      user: {
-        email: {
-          in: [TEST_USER_EMAIL],
-        },
-      },
-    },
-  });
-
-  await prisma.invitation.deleteMany({
-    where: {
-      email: TEST_USER_EMAIL,
-    },
-  });
-
-  await prisma.session.deleteMany({
-    where: {
-      user: {
-        email: {
-          in: [TEST_USER_EMAIL, EXISTING_USER_EMAIL],
-        },
-      },
-    },
-  });
-
-  await prisma.account.deleteMany({
-    where: {
-      user: {
-        email: {
-          in: [TEST_USER_EMAIL],
-        },
-      },
-    },
-  });
-
-  const testUser = await prisma.user.findUnique({
-    where: { email: TEST_USER_EMAIL },
-    include: { member: { include: { organization: true } } },
-  });
-
-  if (testUser) {
-    const orgIds = testUser.member.map((m) => m.organizationId);
-
-    await prisma.todo.deleteMany({
-      where: { organizationId: { in: orgIds } },
-    });
-
-    await prisma.tamagotchi.deleteMany({
-      where: { organizationId: { in: orgIds } },
-    });
-
-    await prisma.organization.deleteMany({
-      where: { id: { in: orgIds } },
-    });
-  }
-
-  await prisma.user.deleteMany({
-    where: {
-      email: {
-        in: [TEST_USER_EMAIL],
-      },
-    },
-  });
-}
-
 test.describe("Authentication Flow Tests", () => {
   test.beforeAll(async () => {
-    await cleanupTestUsers();
-  });
-
-  test.beforeEach(async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto("/");
+    await cleanupAuthTestUsers();
   });
 
   test.afterAll(async () => {
-    await cleanupTestUsers();
+    await cleanupAuthTestUsers();
     await prisma.$disconnect();
   });
 
   test("should sign up new user and sign out", async ({ page }) => {
-    test.setTimeout(45000);
-
     await page.goto("/");
 
     await expect(page.getByTestId(TestId.SIGN_IN_BUTTON)).toBeVisible({
@@ -114,7 +41,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await page.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
@@ -137,12 +64,12 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
       TEST_USER_EMAIL,
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
 
     await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
@@ -158,8 +85,6 @@ test.describe("Authentication Flow Tests", () => {
   });
 
   test("should sign in with existing user and sign out", async ({ page }) => {
-    test.setTimeout(45000);
-
     await page.goto("/sign-in");
     await page.waitForURL(/\/sign-in/, { timeout: 10000 });
 
@@ -175,7 +100,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
     await page.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
@@ -198,12 +123,12 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
       EXISTING_USER_EMAIL,
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
 
     await page.getByTestId(TestId.AVATAR_MENU_SIGN_OUT).click();
@@ -230,7 +155,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
   });
 
@@ -245,7 +170,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
     await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
   });
 
@@ -262,7 +187,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_IN_SUBMIT).click();
 
     await expect(page.getByTestId(TestId.TOAST_ERROR)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
   });
 
@@ -346,7 +271,7 @@ test.describe("Authentication Flow Tests", () => {
     await page.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await page.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 

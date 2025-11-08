@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./utils/test-fixtures";
 import { TestId } from "../test.types";
+import { cleanupTestData } from "./utils/test-cleanup";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -14,84 +15,13 @@ const USER_B_PASSWORD = "TestPassword123!";
 
 const ORG_A_NAME = "Organization A";
 
-async function cleanupTestData() {
-  await prisma.session.deleteMany({
-    where: {
-      user: {
-        email: {
-          in: [USER_A_EMAIL, USER_B_EMAIL],
-        },
-      },
-    },
-  });
-
-  await prisma.invitation.deleteMany({
-    where: {
-      email: {
-        in: [USER_A_EMAIL, USER_B_EMAIL],
-      },
-    },
-  });
-
-  await prisma.member.deleteMany({
-    where: {
-      user: {
-        email: {
-          in: [USER_A_EMAIL, USER_B_EMAIL],
-        },
-      },
-    },
-  });
-
-  const testUsers = await prisma.user.findMany({
-    where: {
-      email: {
-        in: [USER_A_EMAIL, USER_B_EMAIL],
-      },
-    },
-    include: {
-      member: {
-        include: {
-          organization: true,
-        },
-      },
-    },
-  });
-
-  const orgIds = testUsers.flatMap((user) =>
-    user.member.map((m) => m.organizationId)
-  );
-
-  if (orgIds.length > 0) {
-    await prisma.todo.deleteMany({
-      where: { organizationId: { in: orgIds } },
-    });
-
-    await prisma.tamagotchi.deleteMany({
-      where: { organizationId: { in: orgIds } },
-    });
-
-    await prisma.organization.deleteMany({
-      where: { id: { in: orgIds } },
-    });
-  }
-
-  await prisma.user.deleteMany({
-    where: {
-      email: {
-        in: [USER_A_EMAIL, USER_B_EMAIL],
-      },
-    },
-  });
-}
-
 test.describe("Organization Invitation Flow", () => {
   test.beforeAll(async () => {
-    await cleanupTestData();
+    await cleanupTestData([USER_A_EMAIL, USER_B_EMAIL]);
   });
 
   test.afterAll(async () => {
-    await cleanupTestData();
+    await cleanupTestData([USER_A_EMAIL, USER_B_EMAIL]);
     await prisma.$disconnect();
   });
 
@@ -111,7 +41,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await pageA.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
@@ -122,7 +52,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
 
     await expect(pageA.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     const orgSelect = pageA.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
@@ -132,7 +62,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.INVITE_USERS_BUTTON).click();
 
     await expect(pageA.getByTestId(TestId.INVITE_DIALOG)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await pageA.getByTestId(TestId.INVITE_EMAIL_INPUT).fill(USER_B_EMAIL);
@@ -142,7 +72,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.INVITE_SEND_BUTTON).click();
 
     await expect(pageA.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await pageB.goto("/sign-up");
@@ -152,17 +82,17 @@ test.describe("Organization Invitation Flow", () => {
     await pageB.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await pageB.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
     await expect(pageB.getByTestId(TestId.INVITATION_TOAST)).toBeVisible({
-      timeout: 15000,
+      timeout: 10000,
     });
 
     const invitationToast = pageB.getByTestId(TestId.INVITATION_TOAST);
-    await expect(invitationToast).toContainText(ORG_A_NAME);
-    await expect(invitationToast).toContainText("member");
+    await expect(invitationToast).toContainText(ORG_A_NAME, { timeout: 10000 });
+    await expect(invitationToast).toContainText("member", { timeout: 10000 });
 
     await pageB.getByTestId(TestId.INVITATION_ACCEPT_BUTTON).click();
 
@@ -173,7 +103,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageB.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
 
     await expect(pageB.getByTestId(TestId.AVATAR_MENU_CONTENT)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     const orgSelectB = pageB.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
@@ -182,7 +112,7 @@ test.describe("Organization Invitation Flow", () => {
     await orgSelectB.selectOption(orgAId);
 
     await expect(pageB.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await pageA.getByTestId(TestId.TODO_INPUT).fill("User A Todo in Org A");
@@ -190,7 +120,7 @@ test.describe("Organization Invitation Flow", () => {
 
     await expect(
       pageA.getByTestId(TestId.TODO_ITEM).filter({ hasText: "User A Todo in Org A" })
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 10000 });
 
     await pageB.reload();
     await pageB.waitForLoadState("domcontentloaded");
@@ -208,7 +138,7 @@ test.describe("Organization Invitation Flow", () => {
       await userBOrgSelect.selectOption(userBOrgId);
 
       await expect(pageB.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
-        timeout: 5000,
+        timeout: 10000,
       });
 
       await pageB.reload();
@@ -218,9 +148,8 @@ test.describe("Organization Invitation Flow", () => {
       const count = await todoItems.count();
 
       if (count > 0) {
-        await expect(
-          todoItems.filter({ hasText: "User A Todo in Org A" })
-        ).toHaveCount(0);
+        const userATodo = todoItems.filter({ hasText: "User A Todo in Org A" });
+        await expect(userATodo).toHaveCount(0);
       }
     }
 
@@ -245,7 +174,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await pageA.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
@@ -257,7 +186,7 @@ test.describe("Organization Invitation Flow", () => {
     await pageA.getByTestId(TestId.INVITE_SEND_BUTTON).click();
 
     await expect(pageA.getByTestId(TestId.TOAST_SUCCESS)).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     await pageB.goto("/sign-up");
@@ -267,49 +196,25 @@ test.describe("Organization Invitation Flow", () => {
     await pageB.getByTestId(TestId.SIGN_UP_SUBMIT).click();
 
     await pageB.waitForURL("/", {
-      timeout: 20000,
+      timeout: 10000,
       waitUntil: "domcontentloaded",
     });
 
     await expect(pageB.getByTestId(TestId.INVITATION_TOAST)).toBeVisible({
-      timeout: 15000,
+      timeout: 10000,
     });
 
     await pageB.getByTestId(TestId.INVITATION_DECLINE_BUTTON).click();
 
     const invitationToast = pageB.getByTestId(TestId.INVITATION_TOAST);
-    await expect(invitationToast).not.toBeVisible({ timeout: 5000 });
+    await expect(invitationToast).not.toBeVisible({ timeout: 10000 });
 
     await pageB.getByTestId(TestId.AVATAR_MENU_TRIGGER).click();
     const orgSelectB = pageB.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
     const optionsCount = await orgSelectB.locator("option").count();
     expect(optionsCount).toBe(2);
 
-    await prisma.session.deleteMany({
-      where: { user: { email: { in: [uniqueUserAEmail, uniqueUserBEmail] } } },
-    });
-    await prisma.invitation.deleteMany({
-      where: { email: { in: [uniqueUserAEmail, uniqueUserBEmail] } },
-    });
-    await prisma.member.deleteMany({
-      where: { user: { email: { in: [uniqueUserAEmail, uniqueUserBEmail] } } },
-    });
-
-    const users = await prisma.user.findMany({
-      where: { email: { in: [uniqueUserAEmail, uniqueUserBEmail] } },
-      include: { member: true },
-    });
-
-    const orgIds = users.flatMap((u) => u.member.map((m) => m.organizationId));
-    if (orgIds.length > 0) {
-      await prisma.todo.deleteMany({ where: { organizationId: { in: orgIds } } });
-      await prisma.tamagotchi.deleteMany({ where: { organizationId: { in: orgIds } } });
-      await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });
-    }
-
-    await prisma.user.deleteMany({
-      where: { email: { in: [uniqueUserAEmail, uniqueUserBEmail] } },
-    });
+    await cleanupTestData([uniqueUserAEmail, uniqueUserBEmail]);
 
     await contextA.close();
     await contextB.close();
