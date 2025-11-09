@@ -23,16 +23,16 @@ export const useSignIn = () => {
         throw new Error(result.error.message || "Failed to sign in");
       }
 
-      let session = await getSession();
+      let sessionResult = await getSession();
 
-      if (!session?.session?.activeOrganizationId) {
+      if (!sessionResult?.data?.session?.activeOrganizationId) {
         const { data: organizations } = await getUserOrganizationsAction();
         if (organizations && Array.isArray(organizations) && organizations.length > 0) {
           await organization.setActive({ organizationId: organizations[0].id });
           let retries = 0;
           while (retries < 10) {
-            session = await getSession();
-            if (session?.session?.activeOrganizationId) {
+            sessionResult = await getSession();
+            if (sessionResult?.data?.session?.activeOrganizationId) {
               break;
             }
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -41,12 +41,14 @@ export const useSignIn = () => {
         }
       }
 
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+
+      showSuccessToast("Signed in successfully");
+      router.push(configuration.paths.home);
+
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
-      showSuccessToast("Signed in successfully");
-      router.push(configuration.paths.home);
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to sign in", "Sign In Failed");

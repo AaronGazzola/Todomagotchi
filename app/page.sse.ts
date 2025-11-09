@@ -4,13 +4,15 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Todo } from "@prisma/client";
 
-export const useTodosSSE = () => {
+export const useTodosSSE = (enabled: boolean) => {
   const queryClient = useQueryClient();
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    if (!enabled) return;
+
     mountedRef.current = true;
 
     const connect = () => {
@@ -65,5 +67,5 @@ export const useTodosSSE = () => {
         eventSourceRef.current = null;
       }
     };
-  }, [queryClient]);
+  }, [enabled, queryClient]);
 };

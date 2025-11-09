@@ -1,6 +1,10 @@
-import { getAuthenticatedClient } from "@/lib/auth.utils";
+import { auth } from "@/lib/auth";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { NextRequest } from "next/server";
+import { headers } from "next/headers";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,7 +13,7 @@ export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
 
   try {
-    const { db, session } = await getAuthenticatedClient();
+    const session = await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user?.email) {
       return new Response("Unauthorized", { status: 401 });
@@ -24,7 +28,7 @@ export async function GET(request: NextRequest) {
 
         const sendInvitations = async () => {
           try {
-            const invitations = await db.invitation.findMany({
+            const invitations = await prisma.invitation.findMany({
               where: {
                 email: userEmail,
                 status: "pending",

@@ -90,9 +90,8 @@ function HungerBar({
 }
 
 export function Tamagotchi() {
-  useTamagotchiSSE();
-
   const { data: tamagotchi } = useGetTamagotchi();
+  useTamagotchiSSE(!!tamagotchi);
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
   const { mutate: updateAge } = useUpdateTamagotchiAge();

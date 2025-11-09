@@ -10,10 +10,11 @@ import { useTodosSSE } from "./page.sse";
 
 export default function Home() {
   useGetUser();
-  useTodosSSE();
 
   const { data: session } = useSession();
   const hasActiveOrganization = !!session?.session?.activeOrganizationId;
+
+  useTodosSSE(hasActiveOrganization);
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">

@@ -12,9 +12,11 @@ import {
 import { PendingInvitation } from "./AvatarMenu.types";
 import { useInvitationSSE } from "./AvatarMenu.sse";
 import { TestId } from "@/test.types";
+import { useSession } from "@/lib/auth-client";
 
 export function InvitationToasts() {
-  useInvitationSSE();
+  const { data: session } = useSession();
+  useInvitationSSE(!!session?.user?.email);
 
   const { data: invitations } = useGetPendingInvitations();
   const { mutate: acceptInvitation } = useAcceptInvitation();

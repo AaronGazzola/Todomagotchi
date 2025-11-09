@@ -43,10 +43,12 @@ export default defineConfig({
       workers: 1,
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: process.env.BETTER_AUTH_URL || "http://localhost:3001",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  webServer: process.env.SKIP_WEBSERVER
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: process.env.BETTER_AUTH_URL || "http://localhost:3001",
+        reuseExistingServer: !process.env.CI,
+        timeout: 120000,
+      },
 });

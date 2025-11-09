@@ -1,11 +1,11 @@
 "use client";
 
+import { createOrganizationAction } from "@/app/(components)/AvatarMenu.actions";
 import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { configuration } from "@/configuration";
-import { organization, signUp, getSession } from "@/lib/auth-client";
+import { organization, signUp } from "@/lib/auth-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { createOrganizationAction } from "@/app/(components)/AvatarMenu.actions";
 import { SignUpData } from "./page.types";
 
 export const useSignUp = () => {
@@ -28,7 +28,8 @@ export const useSignUp = () => {
         throw new Error(signUpResult.error.message || "Failed to sign up");
       }
 
-      const slug = signUpData.name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
+      const slug =
+        signUpData.name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
       const { data, error } = await createOrganizationAction(
         `${signUpData.name}'s Tasks`,
         slug
@@ -38,29 +39,19 @@ export const useSignUp = () => {
         throw new Error(error);
       }
 
-      if (data && typeof data === 'object' && 'id' in data) {
+      if (data && typeof data === "object" && "id" in data) {
         await organization.setActive({ organizationId: data.id as string });
-        let retries = 0;
-        while (retries < 10) {
-          const session = await getSession();
-          if (session?.session?.activeOrganizationId) {
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, 200));
-          retries++;
-        }
       }
-
-      return signUpResult.data;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       showSuccessToast("Account created successfully");
       router.push(configuration.paths.home);
+
+      return signUpResult.data;
     },
+    onSuccess: () => {},
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to sign up", "Sign Up Failed");
     },

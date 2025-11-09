@@ -1,0 +1,1 @@
+- [] check for a more efficient method than disabling the hooks until they have the requisite data - this could cause delays while they are waiting to get their data

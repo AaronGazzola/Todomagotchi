@@ -4,13 +4,15 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PendingInvitation } from "./AvatarMenu.types";
 
-export const useInvitationSSE = () => {
+export const useInvitationSSE = (enabled: boolean) => {
   const queryClient = useQueryClient();
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    if (!enabled) return;
+
     mountedRef.current = true;
 
     const connect = () => {
@@ -68,5 +70,5 @@ export const useInvitationSSE = () => {
         eventSourceRef.current = null;
       }
     };
-  }, [queryClient]);
+  }, [enabled, queryClient]);
 };

@@ -6,15 +6,23 @@ const prisma = new PrismaClient({
 });
 
 const TEST_EMAIL = process.env.TEST_EMAIL || 'test@example.com';
+const PRESERVED_EMAILS = ['e2e-test@example.com'];
 
 export async function cleanupAuthTestUsers(): Promise<void> {
   const testEmailPattern = TEST_EMAIL.split('@')[0];
 
   const testUsers = await prisma.user.findMany({
     where: {
-      OR: [
-        { email: { contains: testEmailPattern } },
-        { email: { contains: '+' } },
+      AND: [
+        {
+          OR: [
+            { email: { contains: testEmailPattern } },
+            { email: { contains: '+' } },
+          ],
+        },
+        {
+          email: { notIn: PRESERVED_EMAILS },
+        },
       ],
     },
     include: {
@@ -42,10 +50,17 @@ export async function cleanupAuthTestUsers(): Promise<void> {
 
   await prisma.invitation.deleteMany({
     where: {
-      OR: [
-        { email: { contains: testEmailPattern } },
-        { email: { contains: '+' } },
-        { inviterId: { in: userIds } },
+      AND: [
+        {
+          OR: [
+            { email: { contains: testEmailPattern } },
+            { email: { contains: '+' } },
+            { inviterId: { in: userIds } },
+          ],
+        },
+        {
+          email: { notIn: PRESERVED_EMAILS },
+        },
       ],
     },
   });

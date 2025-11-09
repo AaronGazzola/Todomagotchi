@@ -1048,6 +1048,199 @@ For unique values per test run:
 const uniqueId = `test-${Date.now()}@example.com`;
 ```
 
+### SSE Connection Patterns
+
+Server-Sent Events (SSE) connections must be established conditionally to prevent race conditions and authentication errors during sign-up/sign-in flows.
+
+**Why Conditional SSE is Required:**
+
+When a page loads immediately after authentication (sign-up/sign-in), the session may not yet have all required data (e.g., `activeOrganizationId`, `user.email`). If SSE hooks connect immediately on component mount, the server-side authentication checks will fail with errors like:
+
+- `Error: No active organization` (from `getAuthenticatedClient()`)
+- `401 Unauthorized` (missing session data)
+- `Invalid state: Controller is already closed` (connection closed due to auth error)
+
+**Pattern Implementation:**
+
+All SSE hooks must accept an `enabled: boolean` parameter and only establish connections when the required session data is available.
+
+**Hook Pattern:**
+
+```typescript
+export const useMySSE = (enabled: boolean) => {
+  const queryClient = useQueryClient();
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    if (!enabled) return; // Only connect when enabled
+
+    mountedRef.current = true;
+
+    const connect = () => {
+      if (!mountedRef.current) return;
+
+      try {
+        const eventSource = new EventSource("/api/my-data/stream");
+        eventSourceRef.current = eventSource;
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            queryClient.setQueryData(["my-data"], data);
+          } catch (error) {
+            console.error("Failed to parse SSE data:", error);
+          }
+        };
+
+        eventSource.onerror = () => {
+          eventSource.close();
+          eventSourceRef.current = null;
+
+          if (mountedRef.current) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (mountedRef.current) {
+                connect();
+              }
+            }, 5000);
+          }
+        };
+      } catch (error) {
+        console.error("Failed to create EventSource:", error);
+        if (mountedRef.current) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (mountedRef.current) {
+              connect();
+            }
+          }, 5000);
+        }
+      }
+    };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [enabled, queryClient]); // Include enabled in dependency array
+};
+```
+
+**Component Usage Pattern:**
+
+```typescript
+import { useSession } from "@/lib/auth-client";
+import { useMySSE } from "./MyComponent.sse";
+
+export function MyComponent() {
+  const { data: session } = useSession();
+  const hasActiveOrganization = !!session?.session?.activeOrganizationId;
+
+  // Only connect when session has required data
+  useMySSE(hasActiveOrganization);
+
+  // ... rest of component
+}
+```
+
+**Examples from Codebase:**
+
+1. **Todos SSE** (`app/page.sse.ts` + `app/page.tsx`)
+
+   ```typescript
+   // Hook
+   export const useTodosSSE = (enabled: boolean) => {
+     useEffect(() => {
+       if (!enabled) return;
+       // ... connect to /api/todos/stream
+     }, [enabled, queryClient]);
+   };
+
+   // Usage
+   const { data: session } = useSession();
+   const hasActiveOrganization = !!session?.session?.activeOrganizationId;
+   useTodosSSE(hasActiveOrganization);
+   ```
+
+2. **Tamagotchi SSE** (`app/(components)/Tamagotchi.sse.ts` + `app/(components)/Tamagotchi.tsx`)
+
+   ```typescript
+   // Hook
+   export const useTamagotchiSSE = (enabled: boolean) => {
+     useEffect(() => {
+       if (!enabled) return;
+       // ... connect to /api/tamagotchi/stream
+     }, [enabled, queryClient]);
+   };
+
+   // Usage
+   const { data: tamagotchi } = useGetTamagotchi();
+   useTamagotchiSSE(!!tamagotchi);
+   ```
+
+3. **Invitations SSE** (`app/(components)/AvatarMenu.sse.ts` + `app/(components)/InvitationToasts.tsx`)
+
+   ```typescript
+   // Hook
+   export const useInvitationSSE = (enabled: boolean) => {
+     useEffect(() => {
+       if (!enabled) return;
+       // ... connect to /api/invitations/stream
+     }, [enabled, queryClient]);
+   };
+
+   // Usage
+   const { data: session } = useSession();
+   useInvitationSSE(!!session?.user?.email);
+   ```
+
+**Common Enabled Conditions:**
+
+- `!!session?.session?.activeOrganizationId` - Requires active organization (todos, tamagotchi)
+- `!!session?.user?.email` - Requires authenticated user with email (invitations)
+- `!!data` - Requires data to exist (e.g., tamagotchi record)
+- `isAuthenticated && hasRequiredData` - Multiple conditions combined
+
+**Server-Side Requirements:**
+
+Ensure SSE API routes have matching authentication checks:
+
+```typescript
+// app/api/my-data/stream/route.ts
+export async function GET(request: NextRequest) {
+  const { db, session } = await getAuthenticatedClient();
+
+  if (!session?.user?.id) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const activeOrganizationId = session.session?.activeOrganizationId;
+
+  if (!activeOrganizationId) {
+    return new Response("No active organization", { status: 400 });
+  }
+
+  // ... rest of SSE implementation
+}
+```
+
+**Testing Considerations:**
+
+When testing flows involving SSE connections (e.g., sign-up, sign-in):
+
+1. Monitor network failures in tests to catch SSE errors
+2. Ensure tests wait for required session data before asserting on SSE-dependent elements
+3. Use unique timestamps for test data to avoid conflicts
+4. Check both successful navigation AND absence of SSE errors
+
 ## Test Execution
 
 ### npm Scripts

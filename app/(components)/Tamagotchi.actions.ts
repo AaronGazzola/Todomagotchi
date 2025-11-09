@@ -21,8 +21,13 @@ export const getTamagotchiAction = async (): Promise<
       return getActionResponse({ data: null });
     }
 
-    const tamagotchi = await db.tamagotchi.findUnique({
+    const tamagotchi = await db.tamagotchi.upsert({
       where: { organizationId: activeOrganizationId },
+      create: {
+        organizationId: activeOrganizationId,
+        species: getRandomSpecies(),
+      },
+      update: {},
     });
 
     return getActionResponse({ data: tamagotchi });
