@@ -10,7 +10,7 @@ The commands and numbers below are shorthand references to the corresponding pro
 
 5. `_test_results`: "Don't run any tests. Find the directory in @/test-results/\* (_NOT_ in @docs/test-results/\*) that contains the name of the specified test, and the latest timestamp - read the README.md file inside. Concisely list each fail case. Under each fail case list item, list the context, expectations, observations and screenshot."
 
-6. `_test_ouput`: "Find the directory in @/test-results/\* (_NOT_ in @docs/test-results/\*) that contains the name of the specified test, and the latest timestamp - read the `README.md` and `test-report.json` files inside."
+6. `_test_ouput`: "Find the directory in @/test-results/\* that is named with latest timestamp and the name of the specified test. Read `README.md`, `test-report.json` and the screenshot inside."
 
 7. `_test_fix`: "run `npm run test` and fix the fail cases, then run the tests again and repeat until they are all passing. Do not change the test to be less scrupulous. Don't break or remove functionality. If you are stuck then stop and ask."
 

@@ -16,6 +16,16 @@ if (!process.env.TEST_RUN_ID) {
 const outputDir = path.join("test-results", process.env.TEST_RUN_ID);
 fs.mkdirSync(outputDir, { recursive: true });
 
+const getPort = () => {
+  const authUrl = process.env.BETTER_AUTH_URL;
+  if (authUrl && /300\d$/.test(authUrl)) {
+    return authUrl.slice(-4);
+  }
+  return "3000";
+};
+
+const port = getPort();
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -44,7 +54,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: `PORT=${port} npm run dev`,
     url: process.env.BETTER_AUTH_URL || "http://localhost:3000",
     reuseExistingServer: false,
     timeout: 120000,

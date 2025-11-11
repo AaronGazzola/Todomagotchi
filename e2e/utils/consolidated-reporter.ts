@@ -23,10 +23,37 @@ class ConsolidatedReporter implements Reporter {
     traces: string[];
     diagnosticData?: any;
   }> = [];
+  private currentTestNumber: number = 0;
+  private totalTests: number = 0;
 
   onBegin(config: FullConfig, suite: Suite) {
     this.outputDir = config.projects[0].outputDir;
     fs.mkdirSync(this.outputDir, { recursive: true });
+
+    this.totalTests = suite.allTests().length;
+    console.log(`\nRunning ${this.totalTests} tests\n`);
+  }
+
+  onTestBegin(test: TestCase) {
+    this.currentTestNumber++;
+    console.log(`\n[${this.currentTestNumber}/${this.totalTests}] ${test.title}`);
+  }
+
+  onStepBegin(test: TestCase, result: TestResult, step: any) {
+    if (step.category === "test.step") {
+      console.log(`  → ${step.title}`);
+    }
+  }
+
+  onStepEnd(test: TestCase, result: TestResult, step: any) {
+    if (step.category === "test.step") {
+      const statusIcon = step.error ? "✗" : "✓";
+      const duration = (step.duration / 1000).toFixed(1);
+      console.log(`  ${statusIcon} ${step.title} (${duration}s)`);
+      if (step.error) {
+        console.log(`    Error: ${step.error.message?.split('\n')[0] || 'Unknown error'}`);
+      }
+    }
   }
 
   onTestEnd(test: TestCase, result: TestResult) {
@@ -79,6 +106,16 @@ class ConsolidatedReporter implements Reporter {
       traces,
       diagnosticData,
     });
+
+    const statusIcon = result.status === "passed" ? "✓" : "✗";
+    const duration = (result.duration / 1000).toFixed(1);
+    console.log(`  ${statusIcon} ${test.title} (${duration}s)`);
+
+    if (result.status !== "passed") {
+      if (result.error?.message) {
+        console.log(`    Error: ${result.error.message.split('\n')[0]}`);
+      }
+    }
   }
 
   onEnd(result: FullResult) {
