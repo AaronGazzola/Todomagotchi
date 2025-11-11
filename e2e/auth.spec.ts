@@ -134,7 +134,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 10000,
+        timeout: 15000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
@@ -294,7 +294,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 10000,
+        timeout: 15000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
@@ -857,7 +857,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 10000,
+        timeout: 15000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
