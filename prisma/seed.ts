@@ -114,9 +114,11 @@ async function main() {
     },
   });
 
-  await prisma.tamagotchi.update({
+  await prisma.tamagotchi.upsert({
     where: { organizationId: org1.id },
-    data: {
+    update: {},
+    create: {
+      organizationId: org1.id,
       hunger: 40,
       happiness: 80,
       wasteCount: 1,
@@ -130,9 +132,11 @@ async function main() {
     },
   });
 
-  await prisma.tamagotchi.update({
+  await prisma.tamagotchi.upsert({
     where: { organizationId: org2.id },
-    data: {
+    update: {},
+    create: {
+      organizationId: org2.id,
       hunger: 7,
       happiness: 90,
       wasteCount: 0,
@@ -146,9 +150,11 @@ async function main() {
     },
   });
 
-  await prisma.tamagotchi.update({
+  await prisma.tamagotchi.upsert({
     where: { organizationId: e2eOrg.id },
-    data: {
+    update: {},
+    create: {
+      organizationId: e2eOrg.id,
       hunger: 50,
       happiness: 50,
       wasteCount: 0,

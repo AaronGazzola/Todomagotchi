@@ -37,6 +37,8 @@ export function InvitationToasts() {
           <div
             className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-lg min-w-[320px] max-w-[420px]"
             data-testid={TestId.INVITATION_TOAST}
+            data-org-name={invitation.organization.name}
+            data-role={invitation.role}
           >
             <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">

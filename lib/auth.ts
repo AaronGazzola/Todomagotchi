@@ -18,15 +18,54 @@ export const auth = betterAuth({
     organization({
       organizationHooks: {
         afterCreateOrganization: async ({ organization, user }) => {
-          await prisma.member.update({
-            where: {
-              userId_organizationId: {
-                userId: user.id,
+          try {
+            const randomSpecies = `species${Math.floor(Math.random() * 10)}`;
+            const colors = [
+              "#ef4444",
+              "#f97316",
+              "#f59e0b",
+              "#eab308",
+              "#84cc16",
+              "#22c55e",
+              "#10b981",
+              "#14b8a6",
+              "#06b6d4",
+              "#0ea5e9",
+              "#3b82f6",
+              "#6366f1",
+              "#8b5cf6",
+              "#a855f7",
+              "#d946ef",
+              "#ec4899",
+              "#f43f5e",
+            ];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+            await prisma.organization.update({
+              where: { id: organization.id },
+              data: { createdBy: user.id },
+            });
+
+            await prisma.tamagotchi.create({
+              data: {
                 organizationId: organization.id,
+                species: randomSpecies,
+                color: randomColor,
               },
-            },
-            data: { role: "owner" },
-          });
+            });
+
+            await prisma.member.update({
+              where: {
+                userId_organizationId: {
+                  userId: user.id,
+                  organizationId: organization.id,
+                },
+              },
+              data: { role: "owner" },
+            });
+          } catch (error) {
+            throw error;
+          }
         },
       },
     }),

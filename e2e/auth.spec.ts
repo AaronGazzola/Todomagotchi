@@ -1,6 +1,7 @@
 import { test, expect } from "./utils/test-fixtures";
 import { TestId } from "../test.types";
 import { cleanupAuthTestUsers } from "./utils/cleanup-auth-users";
+import { cleanupTestData } from "./utils/test-cleanup";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -67,7 +68,8 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 10000,
     });
 
-    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
+    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toHaveAttribute(
+      "data-email",
       TEST_USER_EMAIL,
       { timeout: 10000 }
     );
@@ -126,7 +128,8 @@ test.describe("Authentication Flow Tests", () => {
       timeout: 10000,
     });
 
-    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toContainText(
+    await expect(page.getByTestId(TestId.AVATAR_MENU_EMAIL)).toHaveAttribute(
+      "data-email",
       EXISTING_USER_EMAIL,
       { timeout: 10000 }
     );
@@ -287,30 +290,6 @@ test.describe("Authentication Flow Tests", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await prisma.session.deleteMany({
-      where: { user: { email: uniqueEmail } },
-    });
-    await prisma.member.deleteMany({
-      where: { user: { email: uniqueEmail } },
-    });
-    const redirectTestUser = await prisma.user.findUnique({
-      where: { email: uniqueEmail },
-      include: { member: { include: { organization: true } } },
-    });
-    if (redirectTestUser) {
-      const orgIds = redirectTestUser.member.map((m) => m.organizationId);
-      await prisma.todo.deleteMany({
-        where: { organizationId: { in: orgIds } },
-      });
-      await prisma.tamagotchi.deleteMany({
-        where: { organizationId: { in: orgIds } },
-      });
-      await prisma.organization.deleteMany({
-        where: { id: { in: orgIds } },
-      });
-    }
-    await prisma.user.deleteMany({
-      where: { email: uniqueEmail },
-    });
+    await cleanupTestData([uniqueEmail]);
   });
 });

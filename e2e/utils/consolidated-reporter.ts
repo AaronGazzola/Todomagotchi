@@ -17,9 +17,11 @@ class ConsolidatedReporter implements Reporter {
     status: string;
     duration: number;
     error?: string;
+    errorStack?: string;
     screenshots: string[];
     videos: string[];
     traces: string[];
+    diagnosticData?: any;
   }> = [];
 
   onBegin(config: FullConfig, suite: Suite) {
@@ -31,8 +33,17 @@ class ConsolidatedReporter implements Reporter {
     const screenshots: string[] = [];
     const videos: string[] = [];
     const traces: string[] = [];
+    let diagnosticData: any = null;
 
     result.attachments.forEach((attachment) => {
+      if (attachment.name === "diagnostic-data" && attachment.body) {
+        try {
+          diagnosticData = JSON.parse(attachment.body.toString());
+        } catch (e) {
+          console.error("Failed to parse diagnostic data:", e);
+        }
+      }
+
       if (attachment.path) {
         const fileName = path.basename(attachment.path);
         const destPath = path.join(this.outputDir, fileName);
@@ -62,9 +73,11 @@ class ConsolidatedReporter implements Reporter {
       status: result.status,
       duration: result.duration,
       error: result.error?.message,
+      errorStack: result.error?.stack,
       screenshots,
       videos,
       traces,
+      diagnosticData,
     });
   }
 
@@ -91,9 +104,11 @@ class ConsolidatedReporter implements Reporter {
         status: test.status,
         duration: test.duration,
         ...(test.error && { error: test.error }),
+        ...(test.errorStack && { errorStack: test.errorStack }),
         ...(test.screenshots.length > 0 && { screenshots: test.screenshots }),
         ...(test.videos.length > 0 && { videos: test.videos }),
         ...(test.traces.length > 0 && { traces: test.traces }),
+        ...(test.diagnosticData && { diagnosticData: test.diagnosticData }),
       })),
     };
 
@@ -139,17 +154,78 @@ class ConsolidatedReporter implements Reporter {
         .forEach((test: any) => {
           lines.push(`### ${test.title}`, ``);
           lines.push(`**File:** ${test.file}`);
-          lines.push(`**Duration:** ${(test.duration / 1000).toFixed(2)}s`);
+          lines.push(`**Duration:** ${test.duration}ms`);
+          lines.push(`**Status:** ${test.status.toUpperCase()}`);
           lines.push(``);
 
-          if (test.error) {
-            lines.push(`**Error:**`, "```", test.error, "```", ``);
+          if (test.diagnosticData?.testContext) {
+            lines.push(`**Test Setup:**`, ``);
+            const ctx = test.diagnosticData.testContext;
+            if (ctx.user) lines.push(`- **User:** ${ctx.user}`);
+            if (ctx.conditions) lines.push(`- **Conditions:** ${ctx.conditions}`);
+            if (ctx.expectation) lines.push(`- **Expected:** ${ctx.expectation}`);
+            if (ctx.observed) lines.push(`- **Observed:** ${ctx.observed}`);
+            lines.push(``);
           }
+
+          if (test.error) {
+            lines.push(`**Error Message:**`, "```", test.error, "```", ``);
+          }
+
+          if (test.errorStack) {
+            lines.push(`**Stack Trace:**`, "```", test.errorStack, "```", ``);
+          }
+
+          if (test.diagnosticData?.consoleLogs?.length > 0) {
+            const errors = test.diagnosticData.consoleLogs.filter((log: any) => log.type === "error");
+            if (errors.length > 0) {
+              lines.push(`**Browser Console Errors:**`, "```");
+              errors.forEach((log: any) => {
+                lines.push(`[${log.type.toUpperCase()}] ${log.text}`);
+                if (log.location) lines.push(`Location: ${log.location}`);
+              });
+              lines.push("```", ``);
+            }
+          }
+
+          if (test.diagnosticData?.networkFailures?.length > 0) {
+            lines.push(`**Network Failures:**`, ``);
+            test.diagnosticData.networkFailures.forEach((failure: any) => {
+              lines.push(`- **${failure.method}** ${failure.url}`);
+              lines.push(`  - Status: ${failure.status} ${failure.statusText}`);
+              if (failure.responseBody) {
+                lines.push(`  - Response:`, "```", failure.responseBody, "```");
+              }
+            });
+            lines.push(``);
+          }
+
+          if (test.diagnosticData?.pageErrors?.length > 0) {
+            lines.push(`**Page Errors:**`, "```");
+            test.diagnosticData.pageErrors.forEach((error: any) => {
+              lines.push(error.message);
+              if (error.stack) lines.push(error.stack);
+            });
+            lines.push("```", ``);
+          }
+
+          lines.push(`**Artifacts:**`, ``);
 
           if (test.screenshots?.length > 0) {
             lines.push(`**Screenshots:**`);
             test.screenshots.forEach((s: string) => {
-              lines.push(`- [${s}](${s})`);
+              lines.push(`- ![${s}](${s})`);
+            });
+            lines.push(``);
+          }
+
+          if (test.traces?.length > 0) {
+            lines.push(`**Trace Files:**`);
+            test.traces.forEach((t: string) => {
+              lines.push(`- ${t}`);
+              lines.push(`  \`\`\`bash`);
+              lines.push(`  npx playwright show-trace ${report.summary.outputDirectory}/${t}`);
+              lines.push(`  \`\`\``);
             });
             lines.push(``);
           }
@@ -158,14 +234,6 @@ class ConsolidatedReporter implements Reporter {
             lines.push(`**Videos:**`);
             test.videos.forEach((v: string) => {
               lines.push(`- [${v}](${v})`);
-            });
-            lines.push(``);
-          }
-
-          if (test.traces?.length > 0) {
-            lines.push(`**Traces:**`);
-            test.traces.forEach((t: string) => {
-              lines.push(`- [${t}](${t})`);
             });
             lines.push(``);
           }

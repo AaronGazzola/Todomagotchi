@@ -91,8 +91,8 @@ test.describe("Organization Invitation Flow", () => {
     });
 
     const invitationToast = pageB.getByTestId(TestId.INVITATION_TOAST);
-    await expect(invitationToast).toContainText(ORG_A_NAME, { timeout: 10000 });
-    await expect(invitationToast).toContainText("member", { timeout: 10000 });
+    await expect(invitationToast).toHaveAttribute("data-org-name", ORG_A_NAME, { timeout: 10000 });
+    await expect(invitationToast).toHaveAttribute("data-role", "member", { timeout: 10000 });
 
     await pageB.getByTestId(TestId.INVITATION_ACCEPT_BUTTON).click();
 
@@ -214,9 +214,9 @@ test.describe("Organization Invitation Flow", () => {
     const optionsCount = await orgSelectB.locator("option").count();
     expect(optionsCount).toBe(2);
 
-    await cleanupTestData([uniqueUserAEmail, uniqueUserBEmail]);
-
     await contextA.close();
     await contextB.close();
+
+    await cleanupTestData([uniqueUserAEmail, uniqueUserBEmail]);
   });
 });

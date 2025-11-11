@@ -1,34 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
-import { useSession } from "@/lib/auth-client";
 import { useSignUp } from "./page.hooks";
+import { useCreateOrganization } from "@/app/(components)/AvatarMenu.hooks";
+import { configuration } from "@/configuration";
 import { Eye, EyeOff, Info } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const { mutate: signUpUser, isPending: isLoading } = useSignUp();
+  const { mutate: signUpUser, isPending: isSigningUp } = useSignUp();
+  const { mutate: createOrganization, isPending: isCreatingOrg } = useCreateOrganization();
 
-  useEffect(() => {
-    if (session?.user) {
-      router.push("/");
-    }
-  }, [session, router]);
+  const isLoading = isSigningUp || isCreatingOrg;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    signUpUser({ name, email, password });
+    signUpUser(
+      { name, email, password },
+      {
+        onSuccess: () => {
+          const slug = name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
+          createOrganization(
+            { name: `${name}'s Tasks`, slug },
+            {
+              onSuccess: () => {
+                router.push(configuration.paths.home);
+              },
+            }
+          );
+        },
+      }
+    );
   };
 
   return (

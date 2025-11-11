@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
+        let closed = false;
         const client = { controller, organizationId: activeOrganizationId };
         sseBroadcaster.addTamagotchiClient(activeOrganizationId, client);
 
@@ -33,7 +34,9 @@ export async function GET(request: NextRequest) {
             });
 
             const data = JSON.stringify(tamagotchi);
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            if (!closed) {
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            }
           } catch (error) {
             console.error("Error fetching tamagotchi:", error);
           }
@@ -44,6 +47,7 @@ export async function GET(request: NextRequest) {
         const intervalId = setInterval(sendTamagotchi, 5000);
 
         request.signal.addEventListener("abort", () => {
+          closed = true;
           clearInterval(intervalId);
           sseBroadcaster.removeTamagotchiClient(activeOrganizationId, client);
           controller.close();

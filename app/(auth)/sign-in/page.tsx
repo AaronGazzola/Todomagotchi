@@ -1,28 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
-import { useSession } from "@/lib/auth-client";
 import { useSignIn } from "./page.hooks";
 import { Info } from "lucide-react";
 
 export default function SignInPage() {
-  const router = useRouter();
-  const { data: session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const { mutate: signInUser, isPending: isLoading } = useSignIn();
-
-  useEffect(() => {
-    if (session?.user) {
-      router.push("/");
-    }
-  }, [session, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

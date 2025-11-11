@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
+        let closed = false;
         const client = { controller, organizationId: activeOrganizationId };
         sseBroadcaster.addTodoClient(activeOrganizationId, client);
 
@@ -34,7 +35,9 @@ export async function GET(request: NextRequest) {
             });
 
             const data = JSON.stringify(todos);
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            if (!closed) {
+              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            }
           } catch (error) {
             console.error("Error fetching todos:", error);
           }
@@ -45,6 +48,7 @@ export async function GET(request: NextRequest) {
         const intervalId = setInterval(sendTodos, 5000);
 
         request.signal.addEventListener("abort", () => {
+          closed = true;
           clearInterval(intervalId);
           sseBroadcaster.removeTodoClient(activeOrganizationId, client);
           controller.close();

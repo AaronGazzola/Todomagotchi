@@ -1,5 +1,6 @@
 import { test, expect } from "./utils/test-fixtures";
 import { TestId } from "../test.types";
+import { cleanupTestData } from "./utils/test-cleanup";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -7,6 +8,9 @@ const prisma = new PrismaClient();
 const TEST_PASSWORD = "TestPassword123!";
 
 test.describe("SSE Session Tests", () => {
+  test.beforeAll(async () => {
+  });
+
   test.afterAll(async () => {
     await prisma.$disconnect();
   });
@@ -74,30 +78,6 @@ test.describe("SSE Session Tests", () => {
       `Found ${activeOrgErrors.length} "No active organization" errors: ${activeOrgErrors.join(", ")}`
     ).toBe(0);
 
-    await prisma.session.deleteMany({
-      where: { user: { email: TEST_USER_EMAIL } },
-    });
-    await prisma.member.deleteMany({
-      where: { user: { email: TEST_USER_EMAIL } },
-    });
-    const user = await prisma.user.findUnique({
-      where: { email: TEST_USER_EMAIL },
-      include: { member: { include: { organization: true } } },
-    });
-    if (user) {
-      const orgIds = user.member.map((m) => m.organizationId);
-      await prisma.todo.deleteMany({
-        where: { organizationId: { in: orgIds } },
-      });
-      await prisma.tamagotchi.deleteMany({
-        where: { organizationId: { in: orgIds } },
-      });
-      await prisma.organization.deleteMany({
-        where: { id: { in: orgIds } },
-      });
-    }
-    await prisma.user.deleteMany({
-      where: { email: TEST_USER_EMAIL },
-    });
+    await cleanupTestData([TEST_USER_EMAIL]);
   });
 });

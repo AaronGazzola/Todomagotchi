@@ -180,6 +180,7 @@ export function AvatarMenu() {
                 <p
                   className="text-sm text-muted-foreground"
                   data-testid={TestId.AVATAR_MENU_EMAIL}
+                  data-email={session.user.email}
                 >
                   {session.user.email}
                 </p>

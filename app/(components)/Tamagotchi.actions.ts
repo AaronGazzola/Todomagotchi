@@ -21,13 +21,8 @@ export const getTamagotchiAction = async (): Promise<
       return getActionResponse({ data: null });
     }
 
-    const tamagotchi = await db.tamagotchi.upsert({
+    const tamagotchi = await db.tamagotchi.findUnique({
       where: { organizationId: activeOrganizationId },
-      create: {
-        organizationId: activeOrganizationId,
-        species: getRandomSpecies(),
-      },
-      update: {},
     });
 
     return getActionResponse({ data: tamagotchi });
@@ -49,8 +44,32 @@ const SPECIES_OPTIONS = [
   "species9",
 ];
 
+const COLOR_OPTIONS = [
+  "#ef4444",
+  "#f97316",
+  "#f59e0b",
+  "#eab308",
+  "#84cc16",
+  "#22c55e",
+  "#10b981",
+  "#14b8a6",
+  "#06b6d4",
+  "#0ea5e9",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#a855f7",
+  "#d946ef",
+  "#ec4899",
+  "#f43f5e",
+];
+
 const getRandomSpecies = (): string => {
   return SPECIES_OPTIONS[Math.floor(Math.random() * SPECIES_OPTIONS.length)];
+};
+
+const getRandomColor = (): string => {
+  return COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)];
 };
 
 export const feedTamagotchiHelper = async (

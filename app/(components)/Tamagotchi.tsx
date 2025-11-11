@@ -142,7 +142,6 @@ export function Tamagotchi() {
     return () => clearInterval(intervalId);
   }, [age, currentSprite.length]);
 
-  console.log({ position });
   const handleFeed = () => {
     if (!isFeeding) {
       feedTamagotchi();

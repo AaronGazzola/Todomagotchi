@@ -21,10 +21,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: [["list"], ["./e2e/utils/consolidated-reporter.ts"]],
+  reporter: [["./e2e/utils/consolidated-reporter.ts"]],
   outputDir: outputDir,
   use: {
-    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3001",
+    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "off",
@@ -43,12 +43,10 @@ export default defineConfig({
       workers: 1,
     },
   ],
-  webServer: process.env.SKIP_WEBSERVER
-    ? undefined
-    : {
-        command: "npm run dev",
-        url: process.env.BETTER_AUTH_URL || "http://localhost:3001",
-        reuseExistingServer: !process.env.CI,
-        timeout: 120000,
-      },
+  webServer: {
+    command: "npm run dev",
+    url: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    reuseExistingServer: false,
+    timeout: 120000,
+  },
 });
