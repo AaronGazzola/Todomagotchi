@@ -19,6 +19,11 @@ export const auth = betterAuth({
       organizationHooks: {
         afterCreateOrganization: async ({ organization, user }) => {
           try {
+            console.log("[afterCreateOrganization] Starting hook", {
+              organizationId: organization.id,
+              userId: user.id,
+            });
+
             const randomSpecies = `species${Math.floor(Math.random() * 10)}`;
             const colors = [
               "#ef4444",
@@ -41,11 +46,13 @@ export const auth = betterAuth({
             ];
             const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
+            console.log("[afterCreateOrganization] Updating organization");
             await prisma.organization.update({
               where: { id: organization.id },
               data: { createdBy: user.id },
             });
 
+            console.log("[afterCreateOrganization] Creating tamagotchi");
             await prisma.tamagotchi.create({
               data: {
                 organizationId: organization.id,
@@ -54,6 +61,7 @@ export const auth = betterAuth({
               },
             });
 
+            console.log("[afterCreateOrganization] Updating member role");
             await prisma.member.update({
               where: {
                 userId_organizationId: {
@@ -63,7 +71,10 @@ export const auth = betterAuth({
               },
               data: { role: "owner" },
             });
+
+            console.log("[afterCreateOrganization] Hook completed successfully");
           } catch (error) {
+            console.error("[afterCreateOrganization] Error:", error);
             throw error;
           }
         },

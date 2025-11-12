@@ -1,26 +1,25 @@
 # Route Protection
 
-This document describes the route protection and redirection strategy implemented in High School Hustle.
+This document describes the route protection and redirection strategy implemented in the application.
 
 ## Overview
 
 The application uses a multi-layered approach to route protection:
 
-1. **Server-side Layout Guards** - Initial cookie-based authentication check
-2. **Client-side Profile Verification** - Continuous authentication state monitoring
-3. **Event-driven Redirection** - Post-authentication flow management
+1. **Middleware Protection** - Initial cookie-based authentication check at the request level
+2. **Server-side Layout Guards** - Layout-level authentication verification
+3. **Client-side User Verification** - Continuous authentication state monitoring with stale session cleanup
+4. **Event-driven Redirection** - Post-authentication flow management
 
 ## Architecture
 
 ### Route Classification
 
-Routes are classified in [configuration.ts](configuration.ts:11-17):
+Routes are classified in [configuration.ts](configuration.ts):
 
 **Private Paths:**
 
 - Home: `/`
-- Admin: `/admin`
-- Dynamic Hustles: `/hustles/*`
 
 **Public Paths:**
 
@@ -30,37 +29,50 @@ Routes are classified in [configuration.ts](configuration.ts:11-17):
 ### Path Checking
 
 ```typescript
-export const isPrivatePath = (path: string) =>
-  path.startsWith("/hustles/") || privatePaths.includes(path);
+export const isPrivatePath = (path: string) => privatePaths.includes(path);
 ```
 
-## Layer 1: Server-Side Layout Guards
+## Layer 1: Middleware Protection
 
-Initial authentication verification happens at the layout level using Next.js server components.
+[middleware.ts](middleware.ts)
 
-### Dashboard Layout Protection
-
-[app/(dashboard)/layout.tsx](<app/(dashboard)/layout.tsx:6-14>)
-
-The dashboard layout protects all private routes:
+The middleware intercepts all requests before they reach layouts or pages:
 
 ```typescript
-export default async function Layout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const isAuth = await hasAuthCookie();
-  if (!isAuth) {
-    redirect(configuration.paths.signIn);
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some(
+      (cookie) =>
+        cookie.name.includes("better-auth") || cookie.name.includes("session")
+    );
+
+  if (isPrivatePath(pathname) && !hasAuthCookie) {
+    return NextResponse.redirect(
+      new URL(configuration.paths.signIn, request.url)
+    );
   }
-  return <DashboardLayoutClient>{children}</DashboardLayoutClient>;
+
+  return NextResponse.next();
 }
 ```
 
+**Key Features:**
+
+- Runs before any page or layout code executes
+- Fast cookie presence check (no database queries)
+- Redirects unauthenticated users away from private paths
+- Provides the earliest possible authentication gate
+
+## Layer 2: Server-Side Layout Guards
+
+Additional authentication verification at the layout level using Next.js server components.
+
 ### Auth Layout Protection
 
-[app/(auth)/layout.tsx](<app/(auth)/layout.tsx:6-12>)
+[app/(auth)/layout.tsx](app/(auth)/layout.tsx)
 
 The auth layout prevents authenticated users from accessing sign-in/sign-up pages:
 
@@ -73,60 +85,61 @@ export default async function AuthLayout({
   if (await hasAuthCookie()) {
     redirect(configuration.paths.home);
   }
-  return <AuthLayoutClient>{children}</AuthLayoutClient>;
+  return <>{children}</>;
 }
 ```
 
 ### Cookie-Based Authentication Check
 
-[lib/auth.utils.ts](lib/auth.utils.ts:7-17)
+[lib/auth.utils.ts](lib/auth.utils.ts:33-43)
 
-The `hasAuthCookie` function performs a fast, lightweight check for Supabase authentication cookies:
+The `hasAuthCookie` function performs a fast, lightweight check for Better Auth cookies:
 
 ```typescript
 export const hasAuthCookie = async (): Promise<boolean> => {
-  const cookieStore = cookies();
-  const authCookies = (await cookieStore).getAll();
+  const cookieStore = await cookies();
+  const authCookies = cookieStore.getAll();
 
-  const hasSupabaseCookie = authCookies.some(
+  const hasBetterAuthCookie = authCookies.some(
     (cookie) =>
-      cookie.name.startsWith("sb-") && cookie.name.includes("-auth-token")
+      cookie.name.includes("better-auth") || cookie.name.includes("session")
   );
 
-  return hasSupabaseCookie;
+  return hasBetterAuthCookie;
 };
 ```
 
 This check is optimized for speed as it only examines cookies without making database or API calls.
 
-## Layer 2: Client-Side Profile Verification
+## Layer 3: Client-Side User Verification
 
-After the initial page load, client-side hooks continuously monitor authentication state.
+After the initial page load, client-side hooks continuously monitor authentication state and handle stale sessions.
 
-### Profile Query Hook
+### User Query Hook
 
-[app/layout.hooks.tsx](app/layout.hooks.tsx:11-33)
+[app/layout.hooks.tsx](app/layout.hooks.tsx:11-32)
 
-The `useGetProfile` hook validates the user session and manages redirection:
+The `useGetUser` hook validates the user session, clears stale cookies, and manages redirection:
 
 ```typescript
-export const useGetProfile = () => {
-  const { setProfile, reset } = useAppStore();
+export const useGetUser = () => {
+  const { setUser, reset } = useAppStore();
   const pathname = usePathname();
   const router = useRouter();
 
   return useQuery({
-    queryKey: ["profile"],
+    queryKey: ["user"],
     queryFn: async () => {
-      const { data, error } = await getProfileAction();
+      const { data, error } = await getUserAction();
       if (!data || error) {
+        await clearAuthCookiesAction();
+        reset();
         if (isPrivatePath(pathname)) {
           router.push(configuration.paths.signIn);
         }
-        reset();
       }
       if (error) throw error;
-      setProfile(data ?? null);
+      setUser(data ?? null);
       return data;
     },
     staleTime: 1000 * 60 * 5,
@@ -136,77 +149,97 @@ export const useGetProfile = () => {
 
 **Key Features:**
 
-- Verifies user profile exists in database
-- Redirects to sign-in if profile fetch fails on private paths
+- Verifies user exists in database with valid Better Auth session
+- **Clears stale authentication cookies** when session is invalid
+- Redirects to sign-in if user fetch fails on private paths
 - Clears application state on authentication failure
-- Caches profile data for 5 minutes to reduce server load
+- Caches user data for 5 minutes to reduce server load
 
-### Profile Action
+### Stale Session Handling
 
-[app/layout.actions.ts](app/layout.actions.ts:9-55)
+When a stale session is detected (cookie exists but session is invalid), the following occurs:
 
-The `getProfileAction` retrieves the user's profile from both Supabase Auth and Prisma:
+1. `getUserAction()` returns `{ data: null }` because session validation fails
+2. `clearAuthCookiesAction()` is called to remove stale cookies from the server
+3. Application state is reset
+4. User is redirected to sign-in if on a private path
+5. On next navigation, middleware/layout checks find no cookie and allow access to sign-in
+
+### User Action
+
+[app/layout.actions.ts](app/layout.actions.ts:10-26)
+
+The `getUserAction` retrieves the user from Better Auth and Prisma:
 
 ```typescript
-export const getProfileAction = async (): Promise<
-  ActionResponse<Profile | null>
-> => {
+export const getUserAction = async (): Promise<ActionResponse<user | null>> => {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error) throw error;
-    if (!user) return getActionResponse({ data: null });
-
-    const profile = await prisma.profile.findUnique({
-      where: { auth_user_id: user.id },
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
 
-    return getActionResponse({ data: profile });
+    if (!session?.user) return getActionResponse({ data: null });
+
+    const prismaUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    return getActionResponse({ data: prismaUser });
   } catch (error) {
     return getActionResponse({ error });
   }
 };
 ```
 
-## Layer 3: Event-Driven Redirection
+### Clear Auth Cookies Action
+
+[app/layout.actions.ts](app/layout.actions.ts:28-35)
+
+The `clearAuthCookiesAction` removes stale authentication cookies:
+
+```typescript
+export const clearAuthCookiesAction = async (): Promise<ActionResponse<void>> => {
+  try {
+    await clearAuthCookies();
+    return getActionResponse({ data: undefined });
+  } catch (error) {
+    return getActionResponse({ error });
+  }
+};
+```
+
+[lib/auth.utils.ts](lib/auth.utils.ts:45-54)
+
+The `clearAuthCookies` function deletes all Better Auth cookies:
+
+```typescript
+export const clearAuthCookies = async (): Promise<void> => {
+  const cookieStore = await cookies();
+  const authCookies = cookieStore.getAll();
+
+  authCookies.forEach((cookie) => {
+    if (cookie.name.includes("better-auth") || cookie.name.includes("session")) {
+      cookieStore.delete(cookie.name);
+    }
+  });
+};
+```
+
+## Layer 4: Event-Driven Redirection
 
 Authentication events trigger appropriate redirections.
 
 ### Sign In Success
 
-[app/(auth)/sign-in/page.hooks.tsx](<app/(auth)/sign-in/page.hooks.tsx:26-29>)
-
-After successful sign-in, users are redirected to the home page:
-
-```typescript
-onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ["profile"] });
-  queryClient.invalidateQueries({ queryKey: ["hustles"] });
-  router.push(configuration.paths.home);
-};
-```
+After successful sign-in, users are redirected to the home page with query cache invalidation.
 
 ### Sign Up Success
 
-[app/(auth)/sign-up/page.hooks.tsx](<app/(auth)/sign-up/page.hooks.tsx:42-45>)
-
-After successful registration, users are redirected to the home page:
-
-```typescript
-onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ["profile"] });
-  queryClient.invalidateQueries({ queryKey: ["hustles"] });
-  router.push(configuration.paths.home);
-};
-```
+After successful registration, users are redirected to the home page with query cache invalidation.
 
 ### Sign Out
 
-[app/layout.hooks.tsx](app/layout.hooks.tsx:35-63)
+[app/layout.hooks.tsx](app/layout.hooks.tsx:35-56)
 
 The `useSignOut` hook manages sign-out flow:
 
@@ -218,16 +251,19 @@ export const useSignOut = () => {
 
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await signOutAction();
-      if (error) throw new Error(error);
-      return data;
+      await signOut();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-    },
-    onSettled: () => {
-      router.push(configuration.paths.signIn);
+      showSuccessToast("Signed out successfully");
+      queryClient.invalidateQueries();
       reset();
+      router.push(configuration.paths.signIn);
+    },
+    onError: (error: Error) => {
+      showErrorToast(error.message || "Failed to sign out", "Sign Out Failed");
+      queryClient.invalidateQueries();
+      reset();
+      router.push(configuration.paths.signIn);
     },
   });
 };
@@ -235,10 +271,11 @@ export const useSignOut = () => {
 
 **Key Features:**
 
-- Invalidates profile cache on success
+- Uses Better Auth's client-side `signOut()` to clear session
+- Invalidates all query cache on success or error
 - Always redirects to sign-in (regardless of success/failure)
 - Clears application state
-- Displays error toast on failure
+- Displays appropriate toast notifications
 
 ## Authentication Flow Diagram
 
@@ -249,91 +286,130 @@ export const useSignOut = () => {
                      │
                      ▼
          ┌───────────────────────┐
-         │ Server Layout Guard   │
-         │ (hasAuthCookie)       │
+         │ Middleware            │
+         │ (Cookie Check)        │
          └───────────┬───────────┘
                      │
         ┌────────────┴────────────┐
         │                         │
         ▼                         ▼
    Private Path              Public Path
-   Has Cookie?               Has Cookie?
-        │                         │
-   ┌────┴────┐             ┌──────┴──────┐
-   │         │             │             │
-  Yes       No            Yes           No
-   │         │             │             │
-   │         ▼             ▼             │
-   │    Redirect to    Redirect to      │
-   │    Sign In        Home             │
-   │                                     │
-   └─────────────┬───────────────────────┘
-                 │
-                 ▼
-         ┌───────────────────────┐
-         │ Page Renders          │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │ useGetProfile Hook    │
-         │ Verifies Profile      │
-         └───────────┬───────────┘
-                     │
-        ┌────────────┴────────────┐
-        │                         │
-        ▼                         ▼
-   Profile Found            Profile Not Found
-   & Valid                  or Error
-        │                         │
-        │                         ▼
-        │                   On Private Path?
-        │                         │
-        │                    ┌────┴────┐
-        │                    │         │
-        │                   Yes       No
-        │                    │         │
-        │                    ▼         │
-        │              Redirect to     │
-        │              Sign In         │
-        │                    │         │
-        └────────────────────┴─────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │ User Authenticated    │
-         │ App State Updated     │
-         └───────────────────────┘
+   Has Cookie?               (Allow Through)
+        │
+   ┌────┴────┐
+   │         │
+  Yes       No
+   │         │
+   │         ▼
+   │    Redirect to
+   │    Sign In
+   │
+   └─────┬────────────────────────┐
+         │                        │
+         ▼                        ▼
+   ┌──────────────┐      ┌──────────────┐
+   │ Auth Layout  │      │ Root Layout  │
+   │ Has Cookie?  │      │ (No Check)   │
+   └──────┬───────┘      └──────┬───────┘
+          │                     │
+     ┌────┴────┐                │
+     │         │                │
+    Yes       No                │
+     │         │                │
+     ▼         │                │
+Redirect to    │                │
+Home           │                │
+     │         │                │
+     └─────────┴────────────────┘
+               │
+               ▼
+     ┌─────────────────┐
+     │ Page Renders    │
+     └────────┬────────┘
+              │
+              ▼
+     ┌─────────────────┐
+     │ useGetUser Hook │
+     │ Validates User  │
+     └────────┬────────┘
+              │
+     ┌────────┴─────────┐
+     │                  │
+     ▼                  ▼
+User Found         No User/Error
+Valid Session      Invalid Session
+     │                  │
+     │                  ▼
+     │         ┌─────────────────────┐
+     │         │ clearAuthCookies()  │
+     │         │ Delete Stale Cookie │
+     │         └─────────┬───────────┘
+     │                   │
+     │                   ▼
+     │            Reset App State
+     │                   │
+     │         ┌─────────┴─────────┐
+     │         │                   │
+     │         ▼                   ▼
+     │    Private Path       Public Path
+     │    Redirect to        Stay on Page
+     │    Sign In
+     │         │                   │
+     └─────────┴───────────────────┘
+               │
+               ▼
+     ┌─────────────────┐
+     │ User Auth State │
+     │ Finalized       │
+     └─────────────────┘
 ```
 
 ## Key Implementation Details
 
-### Why Two-Layer Protection?
+### Why Multi-Layer Protection?
 
-1. **Performance**: Cookie checking ([hasAuthCookie](lib/auth.utils.ts:7)) is fast and prevents unnecessary page renders
-2. **Security**: Profile verification ([getProfileAction](app/layout.actions.ts:9)) ensures the user still exists in the database
-3. **User Experience**: Immediate feedback without waiting for API calls
+1. **Middleware**: Fastest possible check, runs before any code execution
+2. **Layout Guards**: Additional server-side verification for public/private route separation
+3. **Client-Side Validation**: Validates actual session and handles stale cookie cleanup
+4. **Performance**: Cookie checking is fast and prevents unnecessary page renders
+5. **Security**: User verification ensures the user still exists in the database
+6. **User Experience**: Immediate feedback without waiting for API calls
+
+### Stale Session Problem & Solution
+
+**The Problem:**
+- Cookie exists in browser but session is no longer valid on server
+- Middleware/layouts see cookie → redirect to home
+- Client-side hook sees invalid session → redirects to sign-in
+- Loop: sign-in → home → sign-in (because cookie still exists)
+
+**The Solution:**
+- Client-side hook calls `clearAuthCookiesAction()` when session is invalid
+- Server action deletes all Better Auth cookies
+- Next navigation: middleware sees no cookie → allows sign-in page access
+- Loop broken
 
 ### State Management
 
 **Zustand Store** ([app/layout.stores.ts](app/layout.stores.ts))
 
-- Stores profile data globally
-- Provides `reset()` function to clear state on sign-out
+- Stores user data globally
+- Provides `reset()` function to clear state on authentication failure
 
 **React Query**
 
 - Manages loading/error states
-- Caches profile data with 5-minute stale time
+- Caches user data with 5-minute stale time
 - Provides query invalidation on auth state changes
 
 ### Error Handling
 
 All authentication errors result in:
 
-1. State reset via `reset()`
-2. Redirection to sign-in (if on private path)
-3. User notification via toast (for explicit actions)
+1. **Stale cookie cleanup** via `clearAuthCookiesAction()`
+2. **State reset** via `reset()`
+3. **Redirection to sign-in** (if on private path)
+4. **User notification via toast** (for explicit actions like sign-out)
 
 ## Testing Route Protection
 
@@ -342,18 +418,27 @@ To test route protection:
 1. **Unauthenticated Access**
 
    - Navigate to `/` without authentication
-   - Expected: Redirect to `/sign-in`
+   - Expected: Middleware redirects to `/sign-in`
 
 2. **Authenticated Public Access**
 
    - Sign in, then navigate to `/sign-in`
-   - Expected: Redirect to `/`
+   - Expected: Auth layout redirects to `/`
 
-3. **Session Expiration**
+3. **Session Expiration / Cookie Cleared**
 
-   - Sign in, clear cookies, refresh page
-   - Expected: Redirect to `/sign-in`
+   - Sign in, clear cookies via browser DevTools, refresh page
+   - Expected: Middleware redirects to `/sign-in`
 
-4. **Profile Deletion**
-   - Sign in, delete profile from database, trigger profile refetch
-   - Expected: State reset and redirect to `/sign-in`
+4. **Stale Session (Cookie Exists but Invalid)**
+
+   - Sign in, manually invalidate session on server (or wait for expiration)
+   - Navigate to `/` (middleware allows through because cookie exists)
+   - Expected: `useGetUser` detects invalid session, clears cookies, redirects to `/sign-in`
+   - Navigate to `/` again
+   - Expected: Middleware sees no cookie, redirects to `/sign-in`
+
+5. **User Deletion**
+   - Sign in, delete user from database
+   - Trigger user refetch (refresh page or navigate)
+   - Expected: Cookies cleared, state reset, redirect to `/sign-in`

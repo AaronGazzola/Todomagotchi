@@ -5,7 +5,7 @@ import { configuration, isPrivatePath } from "@/configuration";
 import { signOut } from "@/lib/auth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { getUserAction } from "./layout.actions";
+import { clearAuthCookiesAction, getUserAction } from "./layout.actions";
 import { useAppStore } from "./layout.stores";
 
 export const useGetUser = () => {
@@ -18,10 +18,11 @@ export const useGetUser = () => {
     queryFn: async () => {
       const { data, error } = await getUserAction();
       if (!data || error) {
+        await clearAuthCookiesAction();
+        reset();
         if (isPrivatePath(pathname)) {
           router.push(configuration.paths.signIn);
         }
-        reset();
       }
       if (error) throw error;
       setUser(data ?? null);

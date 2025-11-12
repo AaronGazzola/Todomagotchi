@@ -41,3 +41,14 @@ export const hasAuthCookie = async (): Promise<boolean> => {
 
   return hasBetterAuthCookie;
 };
+
+export const clearAuthCookies = async (): Promise<void> => {
+  const cookieStore = await cookies();
+  const authCookies = cookieStore.getAll();
+
+  authCookies.forEach((cookie) => {
+    if (cookie.name.includes("better-auth") || cookie.name.includes("session")) {
+      cookieStore.delete(cookie.name);
+    }
+  });
+};
