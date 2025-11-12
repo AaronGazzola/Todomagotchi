@@ -378,14 +378,14 @@ function generateConsolidatedReport(): void {
 
       if (readmeContent) {
         const summaryMatch = readmeContent.match(
-          /- \*\*Total:\*\* (\d+)\n- \*\*Passed:\*\* (\d+) ✅\n- \*\*Failed:\*\* (\d+) ❌\n- \*\*Skipped:\*\* (\d+) ⏭️/
+          /- ✅ Passed: (\d+)\n- ❌ Failed: (\d+)\n- ⏭️\s+Skipped: (\d+)\n- 📊 Total: (\d+)/
         );
 
         if (summaryMatch) {
-          const total = parseInt(summaryMatch[1]);
-          const passed = parseInt(summaryMatch[2]);
-          const failed = parseInt(summaryMatch[3]);
-          const skipped = parseInt(summaryMatch[4]);
+          const passed = parseInt(summaryMatch[1]);
+          const failed = parseInt(summaryMatch[2]);
+          const skipped = parseInt(summaryMatch[3]);
+          const total = parseInt(summaryMatch[4]);
 
           totalTests += total;
           totalPassed += passed;

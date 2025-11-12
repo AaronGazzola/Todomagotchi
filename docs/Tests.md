@@ -10,10 +10,10 @@ npm run test
 
 ## Test Index
 
-1. [Authentication Flow Tests](#1-authentication-flow-tests) - [e2e/auth.spec.ts](../e2e/auth.spec.ts) - `npm run test:e2e:auth`
-2. [Organization Invitation Tests](#2-organization-invitation-tests) - [e2e/invitations.spec.ts](../e2e/invitations.spec.ts) - `npm run test:e2e:invitations`
-3. [SSE Session Tests](#3-sse-session-tests) - [e2e/sse-session.spec.ts](../e2e/sse-session.spec.ts) - `npm run test:e2e:sse`
-4. [Todo CRUD Operations Tests](#4-todo-crud-operations-tests) - [e2e/todos.spec.ts](../e2e/todos.spec.ts) - `npm run test:e2e:todos`
+1. [Authentication Flow Tests](#1-authentication-flow-tests) - [auth.spec.ts](../e2e/auth.spec.ts) - `npm run test:e2e:auth`
+2. [Organization Invitation Tests](#2-organization-invitation-tests) - [invitations.spec.ts](../e2e/invitations.spec.ts) - `npm run test:e2e:invitations`
+3. [SSE Session Tests](#3-sse-session-tests) - [sse-session.spec.ts](../e2e/sse-session.spec.ts) - `npm run test:e2e:sse`
+4. [Todo CRUD Operations Tests](#4-todo-crud-operations-tests) - [todos.spec.ts](../e2e/todos.spec.ts) - `npm run test:e2e:todos`
 
 ---
 

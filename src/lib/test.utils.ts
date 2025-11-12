@@ -182,33 +182,35 @@ export class TestResultLogger {
   }
 
   getSummary(): string {
+    const stats = this.getStats();
     const failedTests = this.logs.filter(e => !e.passed);
 
     if (failedTests.length === 0) {
       return '';
     }
 
-    const failedTest = failedTests[0];
+    let summary = `\n${stats.total} tests | ${stats.passed} passed | ${stats.failed} failed\n`;
+    summary += `\nFailed Assertions:\n`;
 
-    let summary = `\n1 test | 0 passed | 1 failed\n`;
-    summary += `\nFailed Test:\n`;
-    summary += `\n${failedTest.testNumber}. ${failedTest.testName}\n`;
+    failedTests.forEach((failedTest) => {
+      summary += `\n${failedTest.testNumber}. ${failedTest.testName}\n`;
 
-    if (failedTest.conditions) {
-      summary += `   Conditions: ${failedTest.conditions}\n`;
-    }
-    if (failedTest.expectation) {
-      summary += `   Expected: ${failedTest.expectation}\n`;
-    }
-    if (failedTest.observed) {
-      summary += `   Observed: ${failedTest.observed}\n`;
-    }
-    if (failedTest.screenshotPath) {
-      summary += `   Screenshot: ${failedTest.screenshotPath}\n`;
-    }
-    if (failedTest.errorToast) {
-      summary += `   Error Toast: ${failedTest.errorToast}\n`;
-    }
+      if (failedTest.conditions) {
+        summary += `   Conditions: ${failedTest.conditions}\n`;
+      }
+      if (failedTest.expectation) {
+        summary += `   Expected: ${failedTest.expectation}\n`;
+      }
+      if (failedTest.observed) {
+        summary += `   Observed: ${failedTest.observed}\n`;
+      }
+      if (failedTest.screenshotPath) {
+        summary += `   Screenshot: ${failedTest.screenshotPath}\n`;
+      }
+      if (failedTest.errorToast) {
+        summary += `   Error Toast: ${failedTest.errorToast}\n`;
+      }
+    });
 
     return summary;
   }
@@ -221,29 +223,27 @@ export class TestResultLogger {
   }
 
   getStats(): { total: number; passed: number; failed: number } {
-    const failedTests = this.logs.filter(e => !e.passed);
+    const passed = this.logs.filter(e => e.passed).length;
+    const failed = this.logs.filter(e => !e.passed).length;
     return {
-      total: failedTests.length > 0 ? 1 : 0,
-      passed: 0,
-      failed: failedTests.length > 0 ? 1 : 0
+      total: this.logs.length,
+      passed,
+      failed
     };
   }
 
   getFailedTests(): TestLogEntry[] {
-    const failedTests = this.logs.filter(e => !e.passed);
-    return failedTests.length > 0 ? [failedTests[0]] : [];
+    return this.logs.filter(e => !e.passed);
   }
 
   getAllTests(): TestLogEntry[] {
-    const failedTests = this.logs.filter(e => !e.passed);
-    return failedTests.length > 0 ? [failedTests[0]] : [];
+    return this.logs;
   }
 
   getSerializableData(): { stats: { total: number; passed: number; failed: number }; tests: TestLogEntry[]; testSuiteName: string } {
-    const failedTests = this.logs.filter(e => !e.passed);
     return {
       stats: this.getStats(),
-      tests: failedTests.length > 0 ? [failedTests[0]] : [],
+      tests: this.logs,
       testSuiteName: this.testSuiteName
     };
   }
@@ -386,15 +386,27 @@ export async function waitForElement(page: Page, testId: TestId, timeout: number
   }
 }
 
-export async function captureFailureScreenshot(page: Page, testName: string): Promise<string> {
+export async function captureFailureScreenshot(page: Page | null, testName: string): Promise<string | undefined> {
+  if (!page) {
+    return undefined;
+  }
   const timestamp = Date.now();
   const sanitizedName = testName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
   const screenshotPath = `test-results/failures/${sanitizedName}-${timestamp}.png`;
+
+  const dir = path.join(process.cwd(), 'test-results', 'failures');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
   await page.screenshot({ path: screenshotPath, fullPage: true });
   return screenshotPath;
 }
 
-export async function checkForErrorToast(page: Page, timeout: number = 3000): Promise<string | null> {
+export async function checkForErrorToast(page: Page | null, timeout: number = 3000): Promise<string | null> {
+  if (!page) {
+    return null;
+  }
   try {
     const toast = page.locator('[data-testid="toast-error"]')
       .or(page.locator('[data-testid="toast-success"]'))
@@ -415,7 +427,7 @@ export async function checkForErrorToast(page: Page, timeout: number = 3000): Pr
 
 export async function logTestResult(
   logger: TestResultLogger,
-  page: Page,
+  page: Page | null,
   testName: string,
   conditions: string,
   expectation: string,

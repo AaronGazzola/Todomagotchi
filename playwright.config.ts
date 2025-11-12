@@ -1,30 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
-import * as fs from "fs";
 import * as path from "path";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-if (!process.env.TEST_RUN_ID) {
-  process.env.TEST_RUN_ID = new Date()
-    .toISOString()
-    .replace(/[:.]/g, "-")
-    .replace(/T/, "_")
-    .split("Z")[0];
-}
-
-const outputDir = path.join("test-results", process.env.TEST_RUN_ID);
-fs.mkdirSync(outputDir, { recursive: true });
-
-const getPort = () => {
-  const authUrl = process.env.BETTER_AUTH_URL;
-  if (authUrl && /300\d$/.test(authUrl)) {
-    return authUrl.slice(-4);
-  }
-  return "3000";
+const getPortFromUrl = (url: string | undefined): number => {
+  if (!url) return 3000;
+  const match = url.match(/:(\d+)/);
+  return match ? parseInt(match[1], 10) : 3000;
 };
 
-const port = getPort();
+const port = getPortFromUrl(process.env.BETTER_AUTH_URL);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -32,8 +18,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   timeout: 60000,
-  reporter: [["./e2e/utils/consolidated-reporter.ts"]],
-  outputDir: outputDir,
+  reporter: "list",
+  outputDir: process.env.TEST_RUN_ID
+    ? path.join("test-results", process.env.TEST_RUN_ID)
+    : "test-results/default",
   use: {
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
     trace: "on-first-retry",
@@ -42,22 +30,14 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "invitations",
-      testMatch: "**/invitations.spec.ts",
+      name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      workers: 2,
-    },
-    {
-      name: "other-tests",
-      testIgnore: "**/invitations.spec.ts",
-      use: { ...devices["Desktop Chrome"] },
-      workers: 1,
     },
   ],
   webServer: {
-    command: `PORT=${port} npm run dev`,
-    url: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-    reuseExistingServer: false,
+    command: "npm run dev",
+    port,
+    reuseExistingServer: true,
     timeout: 120000,
   },
 });

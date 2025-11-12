@@ -25,28 +25,53 @@ class ConsolidatedReporter implements Reporter {
   }> = [];
   private currentTestNumber: number = 0;
   private totalTests: number = 0;
+  private startTime: string = "";
 
   onBegin(config: FullConfig, suite: Suite) {
-    this.outputDir = config.projects[0].outputDir;
+    this.startTime = new Date().toISOString();
+
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/T/, "_")
+      .replace(/:/g, "-")
+      .replace(/\..+/, "")
+      .split("Z")[0];
+    const milliseconds = new Date().getMilliseconds().toString().padStart(3, "0");
+    const testFileName = suite.title
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+    const testRunId = `${timestamp}-${milliseconds}_${testFileName}`;
+
+    process.env.TEST_RUN_ID = testRunId;
+
+    this.outputDir = path.join("test-results", testRunId);
     fs.mkdirSync(this.outputDir, { recursive: true });
 
     this.totalTests = suite.allTests().length;
-    console.log(`\nRunning ${this.totalTests} tests\n`);
+
+    if (process.env.TEST_SUMMARY_ONLY === "true") {
+      console.log(`\nRunning ${this.totalTests} tests using ${config.workers || 1} worker${config.workers === 1 ? '' : 's'}\n`);
+    } else {
+      console.log(`\nRunning ${this.totalTests} tests\n`);
+    }
   }
 
   onTestBegin(test: TestCase) {
     this.currentTestNumber++;
-    console.log(`\n[${this.currentTestNumber}/${this.totalTests}] ${test.title}`);
+    if (process.env.TEST_SUMMARY_ONLY !== "true") {
+      console.log(`\n[${this.currentTestNumber}/${this.totalTests}] ${test.title}`);
+    }
   }
 
   onStepBegin(test: TestCase, result: TestResult, step: any) {
-    if (step.category === "test.step") {
+    if (process.env.TEST_SUMMARY_ONLY !== "true" && step.category === "test.step") {
       console.log(`  → ${step.title}`);
     }
   }
 
   onStepEnd(test: TestCase, result: TestResult, step: any) {
-    if (step.category === "test.step") {
+    if (process.env.TEST_SUMMARY_ONLY !== "true" && step.category === "test.step") {
       const statusIcon = step.error ? "✗" : "✓";
       const duration = (step.duration / 1000).toFixed(1);
       console.log(`  ${statusIcon} ${step.title} (${duration}s)`);
@@ -107,13 +132,21 @@ class ConsolidatedReporter implements Reporter {
       diagnosticData,
     });
 
-    const statusIcon = result.status === "passed" ? "✓" : "✗";
-    const duration = (result.duration / 1000).toFixed(1);
-    console.log(`  ${statusIcon} ${test.title} (${duration}s)`);
+    if (process.env.TEST_SUMMARY_ONLY === "true") {
+      const statusIcon = result.status === "passed" ? "✓" : "✗";
+      const duration = (result.duration / 1000).toFixed(1);
+      const title = test.title.length > 40 ? test.title.slice(0, 40) : test.title;
+      const ellipsis = test.title.length > 40 ? "…" : " ";
+      console.log(`  ${statusIcon}  ${this.currentTestNumber} ${ellipsis}${title} (${duration}s)`);
+    } else {
+      const statusIcon = result.status === "passed" ? "✓" : "✗";
+      const duration = (result.duration / 1000).toFixed(1);
+      console.log(`  ${statusIcon} ${test.title} (${duration}s)`);
 
-    if (result.status !== "passed") {
-      if (result.error?.message) {
-        console.log(`    Error: ${result.error.message.split('\n')[0]}`);
+      if (result.status !== "passed") {
+        if (result.error?.message) {
+          console.log(`    Error: ${result.error.message.split('\n')[0]}`);
+        }
       }
     }
   }
@@ -125,6 +158,8 @@ class ConsolidatedReporter implements Reporter {
       (t) => t.status === "skipped"
     ).length;
 
+    const subTestData = this.readSubTestData();
+
     const report = {
       summary: {
         total: this.testResults.length,
@@ -132,7 +167,8 @@ class ConsolidatedReporter implements Reporter {
         failed,
         skipped,
         duration: this.testResults.reduce((sum, t) => sum + t.duration, 0),
-        timestamp: new Date().toISOString(),
+        timestamp: this.startTime,
+        endTime: new Date().toISOString(),
         outputDirectory: this.outputDir,
       },
       tests: this.testResults.map((test) => ({
@@ -147,6 +183,7 @@ class ConsolidatedReporter implements Reporter {
         ...(test.traces.length > 0 && { traces: test.traces }),
         ...(test.diagnosticData && { diagnosticData: test.diagnosticData }),
       })),
+      subTests: subTestData,
     };
 
     const reportPath = path.join(this.outputDir, "test-report.json");
@@ -155,6 +192,14 @@ class ConsolidatedReporter implements Reporter {
     const readmePath = path.join(this.outputDir, "README.md");
     const readme = this.generateReadme(report);
     fs.writeFileSync(readmePath, readme);
+
+    if (process.env.TEST_SUMMARY_ONLY === "true") {
+      if (subTestData.tests && subTestData.tests.length > 0) {
+        console.log("\n📊 Test Logger Summary:");
+        const summary = this.formatSubTestSummary(subTestData);
+        console.log(summary);
+      }
+    }
 
     console.log(`\n📊 Test report generated: ${this.outputDir}`);
     console.log(`   - test-report.json (complete data)`);
@@ -166,6 +211,56 @@ class ConsolidatedReporter implements Reporter {
       );
       console.log(`   - ${artifactCount} artifacts`);
     }
+  }
+
+  private readSubTestData(): any {
+    try {
+      const testResultsDir = path.join(process.cwd(), "test-results");
+      const files = fs.readdirSync(testResultsDir);
+      const afterallFiles = files.filter(f => f.startsWith("afterall-call-") && f.endsWith(".json"));
+
+      if (afterallFiles.length === 0) {
+        return { tests: [] };
+      }
+
+      const latestFile = afterallFiles.sort().pop();
+      if (!latestFile) {
+        return { tests: [] };
+      }
+
+      const filePath = path.join(testResultsDir, latestFile);
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
+    } catch (error) {
+      return { tests: [] };
+    }
+  }
+
+  private formatSubTestSummary(subTestData: any): string {
+    if (!subTestData.tests || subTestData.tests.length === 0) {
+      return "";
+    }
+
+    const failedTests = subTestData.tests.filter((t: any) => !t.passed);
+    let summary = `\n${subTestData.stats?.total || 0} test | ${subTestData.stats?.passed || 0} passed | ${subTestData.stats?.failed || 0} failed\n`;
+
+    if (failedTests.length > 0) {
+      summary += `\nFailed Assertions:\n`;
+      failedTests.forEach((test: any) => {
+        summary += `  ${test.testNumber.toString().padStart(3, "0")}. ${test.testName}\n`;
+        if (test.conditions) {
+          summary += `    Conditions: ${test.conditions}\n`;
+        }
+        if (test.expectation) {
+          summary += `    Expected: ${test.expectation}\n`;
+        }
+        if (test.observed) {
+          summary += `    Observed: ${test.observed}\n`;
+        }
+      });
+    }
+
+    return summary;
   }
 
   private generateReadme(report: any): string {
@@ -275,6 +370,32 @@ class ConsolidatedReporter implements Reporter {
             lines.push(``);
           }
         });
+    }
+
+    if (report.subTests?.tests && report.subTests.tests.length > 0) {
+      const failedSubTests = report.subTests.tests.filter((t: any) => !t.passed);
+      if (failedSubTests.length > 0) {
+        lines.push(`## Failed Sub-Tests`, ``);
+        failedSubTests.forEach((test: any) => {
+          lines.push(`### ${test.testNumber}. ${test.testName}`, ``);
+          if (test.conditions) {
+            lines.push(`**Conditions:** ${test.conditions}`);
+          }
+          if (test.expectation) {
+            lines.push(`**Expected:** ${test.expectation}`);
+          }
+          if (test.observed) {
+            lines.push(`**Observed:** ${test.observed}`);
+          }
+          if (test.screenshotPath) {
+            lines.push(`**Screenshot:** ${test.screenshotPath}`);
+          }
+          if (test.errorToast) {
+            lines.push(`**Error Toast:** ${test.errorToast}`);
+          }
+          lines.push(``);
+        });
+      }
     }
 
     lines.push(`## All Tests`, ``);

@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { admin, organization } from "better-auth/plugins";
+import { createAuthMiddleware } from "better-auth/api";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,34 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+  },
+  hooks: {
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path === "/sign-up/email") {
+        const newSession = ctx.context.newSession;
+        if (newSession?.user) {
+          try {
+            const userName = newSession.user.name || "User";
+            const orgName = `${userName}'s Tasks`;
+            const orgSlug = userName.toLowerCase().replace(/\s+/g, "-") + "-tasks";
+
+            const result = await auth.api.createOrganization({
+              body: { name: orgName, slug: orgSlug },
+              headers: ctx.headers,
+            });
+
+            if (result?.id) {
+              await prisma.session.update({
+                where: { id: newSession.session.id },
+                data: { activeOrganizationId: result.id },
+              });
+            }
+          } catch (error) {
+            console.error("Failed to create organization after signup:", error);
+          }
+        }
+      }
+    }),
   },
   plugins: [
     admin(),

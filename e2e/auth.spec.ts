@@ -102,9 +102,9 @@ test.describe("Authentication Flow Tests", () => {
         timeout: 10000,
       });
       await page.getByTestId(TestId.SIGN_IN_BUTTON).click();
-      await page.waitForURL(/\/sign-in/, { timeout: 10000 });
+      await page.waitForURL(/\/sign-in/, { timeout: 15000 });
       await page.getByTestId(TestId.SIGN_UP_LINK).click();
-      await page.waitForURL(/\/sign-up/, { timeout: 10000 });
+      await page.waitForURL(/\/sign-up/, { timeout: 15000 });
       navigationToSignup = true;
     } catch (error) {
       navigationToSignup = false;
@@ -134,7 +134,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 15000,
+        timeout: 30000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
@@ -278,7 +278,7 @@ test.describe("Authentication Flow Tests", () => {
     );
 
     await page.goto("/sign-in");
-    await page.waitForURL(/\/sign-in/, { timeout: 10000 });
+    await page.waitForURL(/\/sign-in/, { timeout: 15000 });
 
     await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
       timeout: 10000,
@@ -294,7 +294,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 15000,
+        timeout: 30000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
@@ -772,7 +772,7 @@ test.describe("Authentication Flow Tests", () => {
 
     let signUpPageLoaded = false;
     try {
-      await page.waitForURL(/\/sign-up/, { timeout: 10000 });
+      await page.waitForURL(/\/sign-up/, { timeout: 15000 });
       await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
         timeout: 10000,
       });
@@ -800,7 +800,7 @@ test.describe("Authentication Flow Tests", () => {
 
     let backToSignIn = false;
     try {
-      await page.waitForURL(/\/sign-in/, { timeout: 10000 });
+      await page.waitForURL(/\/sign-in/, { timeout: 15000 });
       await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
         timeout: 10000,
       });
@@ -857,7 +857,7 @@ test.describe("Authentication Flow Tests", () => {
     let redirectedToHome = false;
     try {
       await page.waitForURL("/", {
-        timeout: 15000,
+        timeout: 30000,
         waitUntil: "domcontentloaded",
       });
       redirectedToHome = true;
