@@ -13,22 +13,7 @@
     "db:reset": "prisma migrate reset",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "seed": "prisma migrate reset",
-    "test:e2e": "playwright test",
-    "test:e2e:auth": "playwright test e2e/auth.spec.ts",
-    "test:e2e:auth:headed": "playwright test e2e/auth.spec.ts --headed",
-    "test:e2e:auth:trace": "playwright test e2e/auth.spec.ts --trace on",
-    "test:e2e:invitations": "playwright test e2e/invitations.spec.ts",
-    "test:e2e:invitations:headed": "playwright test e2e/invitations.spec.ts --headed",
-    "test:e2e:invitations:trace": "playwright test e2e/invitations.spec.ts --trace on",
-    "test:e2e:todos": "playwright test e2e/todos.spec.ts",
-    "test:e2e:todos:headed": "playwright test e2e/todos.spec.ts --headed",
-    "test:e2e:todos:trace": "playwright test e2e/todos.spec.ts --trace on",
-    "test:e2e:sse": "playwright test e2e/sse-session.spec.ts",
-    "test:e2e:sse:headed": "playwright test e2e/sse-session.spec.ts --headed",
-    "test:e2e:sse:trace": "playwright test e2e/sse-session.spec.ts --trace on",
-    "test:report": "tsx scripts/generate-test-report.ts",
-    "test:report:cleanup": "tsx scripts/generate-test-report.ts --cleanup"
+    "seed": "prisma migrate reset"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -56,7 +41,6 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
