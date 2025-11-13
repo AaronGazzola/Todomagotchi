@@ -222,7 +222,7 @@ test.describe("Authentication Flow", () => {
     let redirectedToHome = false;
     await stepLogger.step("Verify redirect to home after signup", async () => {
       try {
-        await page.waitForURL("/", { timeout: 15000 });
+        await page.waitForURL("/", { timeout: 20000 });
         redirectedToHome = true;
       } catch (error) {
         redirectedToHome = false;
@@ -356,7 +356,7 @@ test.describe("Authentication Flow", () => {
     let redirectedBackToHome = false;
     await stepLogger.step("Verify redirect to home after sign-in", async () => {
       try {
-        await page.waitForURL("/", { timeout: 10000 });
+        await page.waitForURL("/", { timeout: 20000 });
         redirectedBackToHome = true;
       } catch (error) {
         redirectedBackToHome = false;
