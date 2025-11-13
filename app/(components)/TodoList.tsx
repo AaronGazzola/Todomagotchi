@@ -6,6 +6,7 @@ import {
   useGetTodos,
   useToggleTodo,
 } from "@/app/page.hooks";
+import { useAppStore } from "@/app/layout.stores";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface TodoListProps {
 
 export function TodoList({ onTodoAction }: TodoListProps = {}) {
   const [inputValue, setInputValue] = useState("");
+  const activeOrganizationId = useAppStore((state) => state.activeOrganizationId);
 
   const { data: todos = [], isLoading } = useGetTodos();
   const { mutate: createTodo, isPending: isCreating } = useCreateTodo();
@@ -61,6 +63,7 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
       <div
         className="space-y-6"
         data-testid={TestId.TODO_LIST}
+        data-organization-id={activeOrganizationId || ""}
       >
         <h2 className="text-2xl font-bold">Tasks</h2>
         <div className="text-center py-12">
@@ -74,6 +77,7 @@ export function TodoList({ onTodoAction }: TodoListProps = {}) {
     <div
       className="space-y-6 "
       data-testid={TestId.TODO_LIST}
+      data-organization-id={activeOrganizationId || ""}
     >
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-white">Tasks</h2>

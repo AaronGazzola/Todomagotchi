@@ -165,6 +165,7 @@ export function Tamagotchi() {
     <div
       className="relative mx-auto w-full max-w-[400px]"
       data-testid={TestId.TAMAGOTCHI_CONTAINER}
+      data-organization-id={tamagotchi.organizationId}
     >
       <div
         className="relative rounded-[50%] aspect-[4/5] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-[6px]"
