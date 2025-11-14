@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "sh -c 'export $(cat .env | grep BETTER_AUTH_URL | xargs) && next dev --turbopack -p ${BETTER_AUTH_URL##*:}'",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
