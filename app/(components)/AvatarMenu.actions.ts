@@ -15,11 +15,41 @@ export const getUserOrganizationsAction = async (): Promise<
   ActionResponse<unknown>
 > => {
   try {
-    const organizations = await auth.api.listOrganizations({
+    const session = await auth.api.getSession({
       headers: await headers(),
     });
 
-    return getActionResponse({ data: organizations });
+    if (!session?.user) {
+      return getActionResponse({ data: [] });
+    }
+
+    const organizationsResponse = await auth.api.listOrganizations({
+      headers: await headers(),
+    });
+
+    const organizations = (organizationsResponse || []) as Array<{
+      id: string;
+      name: string;
+    }>;
+    const orgIds = organizations.map((o) => o.id);
+
+    const { db } = await getAuthenticatedClient();
+
+    const tamagotchis = await db.tamagotchi.findMany({
+      where: { organizationId: { in: orgIds } },
+    });
+
+    const organizationsWithTamagotchi = organizations.map((org) => ({
+      ...org,
+      slug: org.id,
+      logo: null,
+      metadata: null,
+      createdAt: new Date(),
+      createdBy: session.user.id,
+      tamagotchi: tamagotchis.find((t) => t.organizationId === org.id) || null,
+    }));
+
+    return getActionResponse({ data: organizationsWithTamagotchi });
   } catch (error) {
     return getActionResponse({ error });
   }

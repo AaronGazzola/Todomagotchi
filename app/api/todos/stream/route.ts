@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
 
             const data = JSON.stringify(todos);
             if (!closed) {
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              try {
+                controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+              } catch (enqueueError) {
+                closed = true;
+              }
             }
           } catch (error) {
             console.error("Error fetching todos:", error);
@@ -51,8 +55,13 @@ export async function GET(request: NextRequest) {
           closed = true;
           clearInterval(intervalId);
           sseBroadcaster.removeTodoClient(activeOrganizationId, client);
-          controller.close();
+          try {
+            controller.close();
+          } catch {}
         });
+      },
+      cancel() {
+        request.signal.dispatchEvent(new Event("abort"));
       },
     });
 

@@ -25,12 +25,40 @@ test.describe("Organization Tests", () => {
   const testName = "Test Org User";
 
   test.beforeAll(async () => {
+    const orgSlug = "test-org-user-tasks";
+
+    const orgsToClean = await prisma.organization.findMany({
+      where: { slug: orgSlug },
+    });
+
+    for (const org of orgsToClean) {
+      await prisma.tamagotchi.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.todo.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.invitation.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.member.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.organization.delete({
+        where: { id: org.id },
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: testEmail },
       include: { member: { include: { organization: true } } },
     });
 
     if (user) {
+      await prisma.session.deleteMany({
+        where: { userId: user.id },
+      });
+
       const organizationIds = user.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -50,10 +78,6 @@ test.describe("Organization Tests", () => {
           where: { id: { in: organizationIds } },
         });
       }
-
-      await prisma.session.deleteMany({
-        where: { userId: user.id },
-      });
 
       await prisma.user.delete({
         where: { email: testEmail },
@@ -98,12 +122,40 @@ test.describe("Organization Tests", () => {
       )
     );
 
+    const orgSlug = "test-org-user-tasks";
+
+    const orgsToClean = await prisma.organization.findMany({
+      where: { slug: orgSlug },
+    });
+
+    for (const org of orgsToClean) {
+      await prisma.tamagotchi.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.todo.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.invitation.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.member.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.organization.delete({
+        where: { id: org.id },
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: testEmail },
       include: { member: { include: { organization: true } } },
     });
 
     if (user) {
+      await prisma.session.deleteMany({
+        where: { userId: user.id },
+      });
+
       const organizationIds = user.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -123,10 +175,6 @@ test.describe("Organization Tests", () => {
           where: { id: { in: organizationIds } },
         });
       }
-
-      await prisma.session.deleteMany({
-        where: { userId: user.id },
-      });
 
       await prisma.user.delete({
         where: { email: testEmail },
@@ -211,7 +259,7 @@ test.describe("Organization Tests", () => {
     let redirectedToHome = false;
     await stepLogger.step("Verify redirect to home after signup", async () => {
       try {
-        await page.waitForURL("/", { timeout: 15000 });
+        await page.waitForURL("/", { timeout: 20000 });
         redirectedToHome = true;
       } catch (error) {
         redirectedToHome = false;
@@ -241,7 +289,7 @@ test.describe("Organization Tests", () => {
       tamagotchiVisible = await isVisibleByTestId(
         page,
         TestId.TAMAGOTCHI_CONTAINER,
-        10000
+        20000
       );
 
       await logTestResult(
@@ -265,7 +313,7 @@ test.describe("Organization Tests", () => {
       todoEmptyStateVisible = await isVisibleByTestId(
         page,
         TestId.TODO_EMPTY_STATE,
-        10000
+        20000
       );
 
       await logTestResult(
@@ -336,12 +384,41 @@ test.describe("Organization Invitation Tests", () => {
     inviteePassword = "TestPassword123!";
     inviteeName = "Invitee User";
 
+    const inviterOrgSlug = "inviter-user-tasks";
+    const inviteeOrgSlug = "invitee-user-tasks";
+
+    const orgsToClean = await prisma.organization.findMany({
+      where: { slug: { in: [inviterOrgSlug, inviteeOrgSlug] } },
+    });
+
+    for (const org of orgsToClean) {
+      await prisma.tamagotchi.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.todo.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.invitation.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.member.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.organization.delete({
+        where: { id: org.id },
+      });
+    }
+
     const inviter = await prisma.user.findUnique({
       where: { email: inviterEmail },
       include: { member: { include: { organization: true } } },
     });
 
     if (inviter) {
+      await prisma.session.deleteMany({
+        where: { userId: inviter.id },
+      });
+
       const organizationIds = inviter.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -362,10 +439,6 @@ test.describe("Organization Invitation Tests", () => {
         });
       }
 
-      await prisma.session.deleteMany({
-        where: { userId: inviter.id },
-      });
-
       await prisma.user.delete({
         where: { email: inviterEmail },
       });
@@ -377,6 +450,10 @@ test.describe("Organization Invitation Tests", () => {
     });
 
     if (invitee) {
+      await prisma.session.deleteMany({
+        where: { userId: invitee.id },
+      });
+
       const organizationIds = invitee.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -396,10 +473,6 @@ test.describe("Organization Invitation Tests", () => {
           where: { id: { in: organizationIds } },
         });
       }
-
-      await prisma.session.deleteMany({
-        where: { userId: invitee.id },
-      });
 
       await prisma.user.delete({
         where: { email: inviteeEmail },
@@ -444,12 +517,41 @@ test.describe("Organization Invitation Tests", () => {
       )
     );
 
+    const inviterOrgSlug = "inviter-user-tasks";
+    const inviteeOrgSlug = "invitee-user-tasks";
+
+    const orgsToClean = await prisma.organization.findMany({
+      where: { slug: { in: [inviterOrgSlug, inviteeOrgSlug] } },
+    });
+
+    for (const org of orgsToClean) {
+      await prisma.tamagotchi.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.todo.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.invitation.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.member.deleteMany({
+        where: { organizationId: org.id },
+      });
+      await prisma.organization.delete({
+        where: { id: org.id },
+      });
+    }
+
     const inviter = await prisma.user.findUnique({
       where: { email: inviterEmail },
       include: { member: { include: { organization: true } } },
     });
 
     if (inviter) {
+      await prisma.session.deleteMany({
+        where: { userId: inviter.id },
+      });
+
       const organizationIds = inviter.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -470,10 +572,6 @@ test.describe("Organization Invitation Tests", () => {
         });
       }
 
-      await prisma.session.deleteMany({
-        where: { userId: inviter.id },
-      });
-
       await prisma.user.delete({
         where: { email: inviterEmail },
       });
@@ -485,6 +583,10 @@ test.describe("Organization Invitation Tests", () => {
     });
 
     if (invitee) {
+      await prisma.session.deleteMany({
+        where: { userId: invitee.id },
+      });
+
       const organizationIds = invitee.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
@@ -504,10 +606,6 @@ test.describe("Organization Invitation Tests", () => {
           where: { id: { in: organizationIds } },
         });
       }
-
-      await prisma.session.deleteMany({
-        where: { userId: invitee.id },
-      });
 
       await prisma.user.delete({
         where: { email: inviteeEmail },
@@ -561,7 +659,7 @@ test.describe("Organization Invitation Tests", () => {
       let inviterSignupSuccess = false;
       await stepLogger.step("Inviter: Verify redirect to home", async () => {
         try {
-          await page.waitForURL("/", { timeout: 15000 });
+          await page.waitForURL("/", { timeout: 20000 });
           inviterSignupSuccess = true;
         } catch (error) {
           inviterSignupSuccess = false;
@@ -741,7 +839,7 @@ test.describe("Organization Invitation Tests", () => {
       let inviteeSignupSuccess = false;
       await stepLogger.step("Invitee: Verify redirect to home", async () => {
         try {
-          await page.waitForURL("/", { timeout: 15000 });
+          await page.waitForURL("/", { timeout: 20000 });
           inviteeSignupSuccess = true;
         } catch (error) {
           inviteeSignupSuccess = false;

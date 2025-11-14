@@ -8,9 +8,15 @@ import {
   toggleTodoAction,
   deleteTodoAction,
 } from "./page.actions";
+import { useTodoStore } from "./page.stores";
+import { useGetUser } from "./layout.hooks";
+import { useGetTamagotchi } from "./(components)/Tamagotchi.hooks";
+import { useEffect } from "react";
 
 export const useGetTodos = () => {
-  return useQuery({
+  const { setTodos } = useTodoStore();
+
+  const query = useQuery({
     queryKey: ["todos"],
     queryFn: async () => {
       const { data, error } = await getTodosAction();
@@ -19,6 +25,26 @@ export const useGetTodos = () => {
     },
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setTodos(query.data);
+    }
+  }, [query.data, setTodos]);
+
+  return query;
+};
+
+export const usePageData = () => {
+  const user = useGetUser();
+  const todos = useGetTodos();
+  const tamagotchi = useGetTamagotchi();
+
+  return {
+    isLoading: user.isLoading || todos.isLoading || tamagotchi.isLoading,
+    isFetching: user.isFetching || todos.isFetching || tamagotchi.isFetching,
+    error: user.error || todos.error || tamagotchi.error,
+  };
 };
 
 export const useCreateTodo = () => {

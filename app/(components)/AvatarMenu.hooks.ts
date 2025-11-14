@@ -7,7 +7,6 @@ import {
   acceptInvitationAction,
   createOrganizationAction,
   declineInvitationAction,
-  getOrganizationTamagotchiColorAction,
   getPendingInvitationsForUserAction,
   getUserOrganizationsAction,
   resetOrganizationDataAction,
@@ -15,19 +14,9 @@ import {
   updateTamagotchiColorAction,
 } from "./AvatarMenu.actions";
 import { InvitationResult, SendInvitationsParams } from "./AvatarMenu.types";
+import { useOrganizationStore, useAppStore, useTamagotchiStore } from "@/app/layout.stores";
+import { OrganizationWithTamagotchi } from "@/app/layout.types";
 
-export const useGetUserOrganizations = () => {
-  return useQuery({
-    queryKey: ["user-organizations"],
-    queryFn: async () => {
-      const { data, error } = await getUserOrganizationsAction();
-      if (error) throw new Error(error);
-      return (data as Array<{ id: string; name: string }>) || [];
-    },
-    staleTime: 1000 * 60,
-    refetchOnWindowFocus: true,
-  });
-};
 
 export const useSetActiveOrganization = () => {
   const queryClient = useQueryClient();
@@ -35,11 +24,12 @@ export const useSetActiveOrganization = () => {
   return useMutation({
     mutationFn: async (organizationId: string) => {
       await organization.setActive({ organizationId });
+      return organizationId;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       showSuccessToast("Organization switched");
     },
     onError: (error: Error) => {
@@ -58,9 +48,11 @@ export const useCreateOrganization = () => {
       return data as { id: string } | null;
     },
     onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       if (data?.id) {
         await organization.setActive({ organizationId: data.id });
+
+        queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
+        queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
         queryClient.invalidateQueries({ queryKey: ["todos"] });
         queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       }
@@ -73,29 +65,39 @@ export const useCreateOrganization = () => {
 };
 
 export const useGetOrganizationColor = (organizationId: string | null) => {
-  return useQuery({
-    queryKey: ["organization-color", organizationId],
-    queryFn: async () => {
-      if (!organizationId) return "#1f2937";
-      const { data, error } =
-        await getOrganizationTamagotchiColorAction(organizationId);
-      if (error) throw new Error(error);
-      return data || "#1f2937";
-    },
-    enabled: !!organizationId,
-    staleTime: 1000 * 60,
-  });
+  const { organizations } = useOrganizationStore();
+
+  const org = organizations.find((o) => o.id === organizationId);
+  const color = org?.tamagotchi?.color || "#1f2937";
+
+  return { data: color };
 };
 
 export const useUpdateTamagotchiColor = () => {
   const queryClient = useQueryClient();
+  const { tamagotchi, setTamagotchi } = useTamagotchiStore();
+  const { activeOrganizationId } = useAppStore();
+  const { organizations, setOrganizations } = useOrganizationStore();
 
   return useMutation({
     mutationFn: async (color: string) => {
       const { error } = await updateTamagotchiColorAction(color);
       if (error) throw new Error(error);
+      return color;
     },
-    onSuccess: () => {
+    onSuccess: (color) => {
+      if (tamagotchi) {
+        const updatedTamagotchi = { ...tamagotchi, color };
+        setTamagotchi(updatedTamagotchi);
+
+        const updatedOrgs = organizations.map((org) =>
+          org.id === activeOrganizationId
+            ? { ...org, tamagotchi: updatedTamagotchi }
+            : org
+        );
+        setOrganizations(updatedOrgs);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       queryClient.invalidateQueries({ queryKey: ["organization-color"] });
       showSuccessToast("Tamagotchi color updated");
@@ -180,8 +182,9 @@ export const useAcceptInvitation = () => {
       const { error } = await acceptInvitationAction(invitationId);
       if (error) throw new Error(error);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });

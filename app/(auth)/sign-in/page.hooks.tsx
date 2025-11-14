@@ -7,10 +7,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SignInData } from "./page.types";
 import { getUserOrganizationsAction } from "@/app/(components)/AvatarMenu.actions";
+import { useAppStore, useOrganizationStore, useTamagotchiStore } from "@/app/layout.stores";
+import { getUserWithAllDataAction } from "@/app/layout.actions";
 
 export const useSignIn = () => {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { setUser, setActiveOrganizationId } = useAppStore();
+  const { setOrganizations } = useOrganizationStore();
+  const { setTamagotchi } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async (signInData: SignInData) => {
@@ -41,7 +46,16 @@ export const useSignIn = () => {
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      const { data: allData } = await getUserWithAllDataAction();
+
+      if (allData) {
+        setUser(allData.user);
+        setOrganizations(allData.organizations);
+        setActiveOrganizationId(allData.activeOrganizationId);
+        setTamagotchi(allData.activeTamagotchi);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
 
       showSuccessToast("Signed in successfully");
       router.push(configuration.paths.home);

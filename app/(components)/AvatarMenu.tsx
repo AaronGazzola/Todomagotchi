@@ -15,17 +15,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useSession } from "@/lib/auth-client";
 import { TestId } from "@/test.types";
 import { Mail, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { useSignOut } from "../layout.hooks";
+import { useAppStore, useOrganizationStore } from "../layout.stores";
 import {
   useCreateOrganization,
   useGetOrganizationColor,
-  useGetUserOrganizations,
   useResetOrganizationData,
   useSendInvitations,
   useSetActiveOrganization,
@@ -34,15 +33,14 @@ import {
 
 export function AvatarMenu() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { user, activeOrganizationId } = useAppStore();
+  const { organizations } = useOrganizationStore();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
   const [inviteEmails, setInviteEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
-
-  const { data: organizations } = useGetUserOrganizations();
   const { mutate: setActiveOrganization } = useSetActiveOrganization();
   const { mutate: updateColor } = useUpdateTamagotchiColor();
   const { mutate: createOrganization, isPending: isCreatingOrg } =
@@ -52,7 +50,6 @@ export function AvatarMenu() {
     useSendInvitations();
   const { mutate: signOutMutation } = useSignOut();
 
-  const activeOrganizationId = session?.session?.activeOrganizationId ?? null;
   const { data: currentColor } = useGetOrganizationColor(activeOrganizationId);
 
   const [tempColor, setTempColor] = useState(currentColor || "#1f2937");
@@ -131,7 +128,7 @@ export function AvatarMenu() {
 
   const hasNoOrganizations = organizations && organizations.length === 0;
 
-  if (!session?.user) {
+  if (!user) {
     return (
       <div className="fixed top-4 right-4 z-50">
         <Button
@@ -145,9 +142,9 @@ export function AvatarMenu() {
   }
 
   const initials =
-    session.user.name
+    user.name
       ?.split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .toUpperCase() || "U";
 
@@ -180,9 +177,9 @@ export function AvatarMenu() {
                 <p
                   className="text-sm text-muted-foreground"
                   data-testid={TestId.AVATAR_MENU_EMAIL}
-                  data-email={session.user.email}
+                  data-email={user.email}
                 >
-                  {session.user.email}
+                  {user.email}
                 </p>
               </div>
 

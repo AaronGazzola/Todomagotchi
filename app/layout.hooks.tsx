@@ -5,27 +5,38 @@ import { configuration, isPrivatePath } from "@/configuration";
 import { signOut } from "@/lib/auth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
-import { clearAuthCookiesAction, getUserAction } from "./layout.actions";
-import { useAppStore } from "./layout.stores";
+import { clearAuthCookiesAction, getUserWithAllDataAction } from "./layout.actions";
+import { useAppStore, useOrganizationStore, useTamagotchiStore } from "./layout.stores";
 
 export const useGetUser = () => {
-  const { setUser, reset } = useAppStore();
+  const { setUser, setActiveOrganizationId, reset: resetApp } = useAppStore();
+  const { setOrganizations, reset: resetOrg } = useOrganizationStore();
+  const { setTamagotchi, reset: resetTama } = useTamagotchiStore();
   const pathname = usePathname();
   const router = useRouter();
 
   return useQuery({
-    queryKey: ["user"],
+    queryKey: ["user-with-all-data"],
     queryFn: async () => {
-      const { data, error } = await getUserAction();
+      const { data, error } = await getUserWithAllDataAction();
       if (!data || error) {
         await clearAuthCookiesAction();
-        reset();
+        resetApp();
+        resetOrg();
+        resetTama();
         if (isPrivatePath(pathname)) {
           router.push(configuration.paths.signIn);
         }
       }
       if (error) throw error;
-      setUser(data ?? null);
+
+      if (data) {
+        setUser(data.user);
+        setOrganizations(data.organizations);
+        setActiveOrganizationId(data.activeOrganizationId);
+        setTamagotchi(data.activeTamagotchi);
+      }
+
       return data;
     },
     staleTime: 1000 * 60 * 5,
@@ -35,7 +46,9 @@ export const useGetUser = () => {
 export const useSignOut = () => {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { reset } = useAppStore();
+  const { reset: resetApp } = useAppStore();
+  const { reset: resetOrg } = useOrganizationStore();
+  const { reset: resetTama } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async () => {
@@ -43,14 +56,24 @@ export const useSignOut = () => {
     },
     onSuccess: () => {
       showSuccessToast("Signed out successfully");
-      queryClient.invalidateQueries();
-      reset();
+      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+      resetApp();
+      resetOrg();
+      resetTama();
       router.push(configuration.paths.signIn);
     },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to sign out", "Sign Out Failed");
-      queryClient.invalidateQueries();
-      reset();
+      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-invitations"] });
+      resetApp();
+      resetOrg();
+      resetTama();
       router.push(configuration.paths.signIn);
     },
   });

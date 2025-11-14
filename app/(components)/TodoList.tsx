@@ -3,9 +3,9 @@
 import {
   useCreateTodo,
   useDeleteTodo,
-  useGetTodos,
   useToggleTodo,
 } from "@/app/page.hooks";
+import { useTodoStore } from "@/app/page.stores";
 import { useAppStore } from "@/app/layout.stores";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,13 +16,14 @@ import { useState } from "react";
 
 interface TodoListProps {
   onTodoAction?: () => void;
+  isLoading?: boolean;
 }
 
-export function TodoList({ onTodoAction }: TodoListProps = {}) {
+export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}) {
   const [inputValue, setInputValue] = useState("");
   const activeOrganizationId = useAppStore((state) => state.activeOrganizationId);
 
-  const { data: todos = [], isLoading } = useGetTodos();
+  const todos = useTodoStore((state) => state.todos) || [];
   const { mutate: createTodo, isPending: isCreating } = useCreateTodo();
   const { mutate: toggleTodo } = useToggleTodo();
   const { mutate: deleteTodo } = useDeleteTodo();

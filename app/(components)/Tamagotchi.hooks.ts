@@ -10,21 +10,35 @@ import {
   updateTamagotchiAgeAction,
 } from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
+import { useTamagotchiStore, useAppStore } from "@/app/layout.stores";
 
 export const useGetTamagotchi = () => {
-  return useQuery({
+  const { setTamagotchi } = useTamagotchiStore();
+  const { activeOrganizationId } = useAppStore();
+
+  const query = useQuery({
     queryKey: ["tamagotchi"],
     queryFn: async () => {
       const { data, error } = await getTamagotchiAction();
       if (error) throw new Error(error);
       return data;
     },
+    enabled: !!activeOrganizationId,
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setTamagotchi(query.data);
+    }
+  }, [query.data, setTamagotchi]);
+
+  return query;
 };
 
 export const useFeedTamagotchi = () => {
   const queryClient = useQueryClient();
+  const { setTamagotchi } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async () => {
@@ -33,6 +47,9 @@ export const useFeedTamagotchi = () => {
       return data;
     },
     onSuccess: (data) => {
+      if (data) {
+        setTamagotchi(data);
+      }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
 
       if (data?.age === 0 && data?.feedCount === 0) {
@@ -59,6 +76,7 @@ export const useFeedTamagotchi = () => {
 
 export const useUpdateTamagotchiHunger = () => {
   const queryClient = useQueryClient();
+  const { setTamagotchi } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async () => {
@@ -67,7 +85,10 @@ export const useUpdateTamagotchiHunger = () => {
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data) {
+        setTamagotchi(data);
+      }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
     },
   });
@@ -92,6 +113,7 @@ export const useHungerTimer = () => {
 
 export const useUpdateTamagotchiSpecies = () => {
   const queryClient = useQueryClient();
+  const { setTamagotchi } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async (species: string) => {
@@ -99,7 +121,10 @@ export const useUpdateTamagotchiSpecies = () => {
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data) {
+        setTamagotchi(data);
+      }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       showSuccessToast("Species updated!");
     },
@@ -114,6 +139,7 @@ export const useUpdateTamagotchiSpecies = () => {
 
 export const useUpdateTamagotchiAge = () => {
   const queryClient = useQueryClient();
+  const { setTamagotchi } = useTamagotchiStore();
 
   return useMutation({
     mutationFn: async (age: number) => {
@@ -121,7 +147,10 @@ export const useUpdateTamagotchiAge = () => {
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data) {
+        setTamagotchi(data);
+      }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       showSuccessToast("Age updated!");
     },

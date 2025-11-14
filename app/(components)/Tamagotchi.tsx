@@ -11,11 +11,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SpriteGridViewer } from "./SpriteGridViewer";
 import {
   useFeedTamagotchi,
-  useGetTamagotchi,
   useHungerTimer,
   useUpdateTamagotchiAge,
   useUpdateTamagotchiSpecies,
 } from "./Tamagotchi.hooks";
+import { useTamagotchiStore } from "@/app/layout.stores";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import { useTamagotchiSSE } from "./Tamagotchi.sse";
 import {
@@ -89,8 +89,12 @@ function HungerBar({
   );
 }
 
-export function Tamagotchi() {
-  const { data: tamagotchi } = useGetTamagotchi();
+interface TamagotchiProps {
+  isLoading?: boolean;
+}
+
+export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
+  const tamagotchi = useTamagotchiStore((state) => state.tamagotchi);
   useTamagotchiSSE(!!tamagotchi);
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
@@ -148,10 +152,6 @@ export function Tamagotchi() {
     }
   };
 
-  if (!tamagotchi) {
-    return null;
-  }
-
   const isDevelopment = process.env.NODE_ENV === "development";
   const speciesOptions = Array.from({ length: 10 }, (_, i) => `species${i}`);
   const ageOptions = [
@@ -160,6 +160,17 @@ export function Tamagotchi() {
     { value: 2, label: "Child" },
     { value: 3, label: "Adult" },
   ];
+
+  if (isLoading || !tamagotchi) {
+    return (
+      <div
+        className="relative mx-auto w-full max-w-[400px]"
+        data-testid={TestId.TAMAGOTCHI_CONTAINER}
+      >
+        <div className="rounded-[50%] aspect-[4/5] p-6 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-[6px] border-gray-400" />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -201,7 +212,7 @@ export function Tamagotchi() {
               </div>
             </div>
             <HungerBar
-              level={tamagotchi?.hunger || 0}
+              level={tamagotchi.hunger}
               color={color}
               data-testid={TestId.TAMAGOTCHI_HUNGER_BAR}
             />
