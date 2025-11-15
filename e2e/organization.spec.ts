@@ -367,48 +367,15 @@ test.describe("Organization Invitation Tests", () => {
   test.describe.configure({ workers: 2 });
 
   const logger = new TestResultLogger("invitation");
-  let inviterEmail: string;
-  let inviterPassword: string;
-  let inviterName: string;
-  let inviteeEmail: string;
-  let inviteePassword: string;
-  let inviteeName: string;
+  const inviterEmail = "inviter@example.com";
+  const inviterPassword = "InviterPass123!";
+  const inviterName = "Inviter User";
+  const inviteeEmail = "invitee@example.com";
+  const inviteePassword = "InviteePass123!";
+  const inviteeName = "Invitee User";
   let inviterOrgId: string;
 
   test.beforeAll(async () => {
-    const timestamp = Date.now();
-    inviterEmail = `inviter-${timestamp}@example.com`;
-    inviterPassword = "TestPassword123!";
-    inviterName = "Inviter User";
-    inviteeEmail = `invitee-${timestamp}@example.com`;
-    inviteePassword = "TestPassword123!";
-    inviteeName = "Invitee User";
-
-    const inviterOrgSlug = "inviter-user-tasks";
-    const inviteeOrgSlug = "invitee-user-tasks";
-
-    const orgsToClean = await prisma.organization.findMany({
-      where: { slug: { in: [inviterOrgSlug, inviteeOrgSlug] } },
-    });
-
-    for (const org of orgsToClean) {
-      await prisma.tamagotchi.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.todo.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.invitation.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.member.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.organization.delete({
-        where: { id: org.id },
-      });
-    }
-
     const inviter = await prisma.user.findUnique({
       where: { email: inviterEmail },
       include: { member: { include: { organization: true } } },
@@ -422,26 +389,10 @@ test.describe("Organization Invitation Tests", () => {
       const organizationIds = inviter.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
-        await prisma.tamagotchi.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.todo.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
         await prisma.invitation.deleteMany({
           where: { organizationId: { in: organizationIds } },
         });
-        await prisma.member.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.organization.deleteMany({
-          where: { id: { in: organizationIds } },
-        });
       }
-
-      await prisma.user.delete({
-        where: { email: inviterEmail },
-      });
     }
 
     const invitee = await prisma.user.findUnique({
@@ -457,26 +408,13 @@ test.describe("Organization Invitation Tests", () => {
       const organizationIds = invitee.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
-        await prisma.tamagotchi.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.todo.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
         await prisma.invitation.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.member.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.organization.deleteMany({
-          where: { id: { in: organizationIds } },
+          where: {
+            email: inviteeEmail,
+            organizationId: { in: organizationIds },
+          },
         });
       }
-
-      await prisma.user.delete({
-        where: { email: inviteeEmail },
-      });
     }
   });
 
@@ -517,34 +455,9 @@ test.describe("Organization Invitation Tests", () => {
       )
     );
 
-    const inviterOrgSlug = "inviter-user-tasks";
-    const inviteeOrgSlug = "invitee-user-tasks";
-
-    const orgsToClean = await prisma.organization.findMany({
-      where: { slug: { in: [inviterOrgSlug, inviteeOrgSlug] } },
-    });
-
-    for (const org of orgsToClean) {
-      await prisma.tamagotchi.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.todo.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.invitation.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.member.deleteMany({
-        where: { organizationId: org.id },
-      });
-      await prisma.organization.delete({
-        where: { id: org.id },
-      });
-    }
-
     const inviter = await prisma.user.findUnique({
       where: { email: inviterEmail },
-      include: { member: { include: { organization: true } } },
+      include: { member: true },
     });
 
     if (inviter) {
@@ -555,31 +468,15 @@ test.describe("Organization Invitation Tests", () => {
       const organizationIds = inviter.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
-        await prisma.tamagotchi.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.todo.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
         await prisma.invitation.deleteMany({
           where: { organizationId: { in: organizationIds } },
         });
-        await prisma.member.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.organization.deleteMany({
-          where: { id: { in: organizationIds } },
-        });
       }
-
-      await prisma.user.delete({
-        where: { email: inviterEmail },
-      });
     }
 
     const invitee = await prisma.user.findUnique({
       where: { email: inviteeEmail },
-      include: { member: { include: { organization: true } } },
+      include: { member: true },
     });
 
     if (invitee) {
@@ -590,26 +487,13 @@ test.describe("Organization Invitation Tests", () => {
       const organizationIds = invitee.member.map((m) => m.organizationId);
 
       if (organizationIds.length > 0) {
-        await prisma.tamagotchi.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.todo.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
         await prisma.invitation.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.member.deleteMany({
-          where: { organizationId: { in: organizationIds } },
-        });
-        await prisma.organization.deleteMany({
-          where: { id: { in: organizationIds } },
+          where: {
+            email: inviteeEmail,
+            organizationId: { in: organizationIds },
+          },
         });
       }
-
-      await prisma.user.delete({
-        where: { email: inviteeEmail },
-      });
     }
 
     await prisma.$disconnect();
@@ -624,9 +508,9 @@ test.describe("Organization Invitation Tests", () => {
 
     if (workerIndex === 0) {
       logger.registerExpectedTest(
-        "Invitation - Inviter sign up",
-        formatTestConditions({ userType: "new user", worker: "inviter" }),
-        "Sign up successful"
+        "Invitation - Inviter sign in",
+        formatTestConditions({ userType: "inviter", worker: "inviter" }),
+        "Sign in successful"
       );
       logger.registerExpectedTest(
         "Invitation - Open invite dialog",
@@ -642,42 +526,41 @@ test.describe("Organization Invitation Tests", () => {
         "Invitation sent successfully"
       );
 
-      await stepLogger.step("Inviter: Navigate to sign-up page", async () => {
-        await page.goto("/sign-up");
+      await stepLogger.step("Inviter: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
       });
 
-      await stepLogger.step("Inviter: Complete sign-up", async () => {
-        await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
+      await stepLogger.step("Inviter: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
           timeout: 10000,
         });
-        await fillByTestId(page, TestId.SIGN_UP_NAME, inviterName);
-        await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviterEmail);
-        await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviterPassword);
-        await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
       });
 
-      let inviterSignupSuccess = false;
+      let inviterSigninSuccess = false;
       await stepLogger.step("Inviter: Verify redirect to home", async () => {
         try {
           await page.waitForURL("/", { timeout: 20000 });
-          inviterSignupSuccess = true;
+          inviterSigninSuccess = true;
         } catch (error) {
-          inviterSignupSuccess = false;
+          inviterSigninSuccess = false;
         }
 
         await logTestResult(
           logger,
           page,
-          "Invitation - Inviter sign up",
-          formatTestConditions({ userType: "new user", worker: "inviter" }),
-          "Sign up successful",
-          inviterSignupSuccess,
-          "signed up successfully",
-          "sign up failed"
+          "Invitation - Inviter sign in",
+          formatTestConditions({ userType: "inviter", worker: "inviter" }),
+          "Sign in successful",
+          inviterSigninSuccess,
+          "signed in successfully",
+          "sign in failed"
         );
 
-        if (!inviterSignupSuccess) {
-          throw new Error("Inviter sign up failed");
+        if (!inviterSigninSuccess) {
+          throw new Error("Inviter sign in failed");
         }
       });
 
@@ -692,25 +575,6 @@ test.describe("Organization Invitation Tests", () => {
         }
 
         inviterOrgId = inviter.member[0].organizationId;
-      });
-
-      await stepLogger.step("Inviter: Wait for invitee to be ready", async () => {
-        let invitee = await prisma.user.findUnique({
-          where: { email: inviteeEmail },
-        });
-
-        let attempts = 0;
-        while (!invitee && attempts < 30) {
-          await page.waitForTimeout(1000);
-          invitee = await prisma.user.findUnique({
-            where: { email: inviteeEmail },
-          });
-          attempts++;
-        }
-
-        if (!invitee) {
-          throw new Error("Invitee did not sign up in time");
-        }
       });
 
       await stepLogger.step("Inviter: Open avatar menu", async () => {
@@ -804,9 +668,9 @@ test.describe("Organization Invitation Tests", () => {
       );
     } else if (workerIndex === 1) {
       logger.registerExpectedTest(
-        "Invitation - Invitee sign up",
-        formatTestConditions({ userType: "new user", worker: "invitee" }),
-        "Sign up successful"
+        "Invitation - Invitee sign in",
+        formatTestConditions({ userType: "invitee", worker: "invitee" }),
+        "Sign in successful"
       );
       logger.registerExpectedTest(
         "Invitation - Receive invitation toast",
@@ -822,42 +686,41 @@ test.describe("Organization Invitation Tests", () => {
         "Toast shows correct organization name"
       );
 
-      await stepLogger.step("Invitee: Navigate to sign-up page", async () => {
-        await page.goto("/sign-up");
+      await stepLogger.step("Invitee: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
       });
 
-      await stepLogger.step("Invitee: Complete sign-up", async () => {
-        await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
+      await stepLogger.step("Invitee: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
           timeout: 10000,
         });
-        await fillByTestId(page, TestId.SIGN_UP_NAME, inviteeName);
-        await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviteeEmail);
-        await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviteePassword);
-        await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
       });
 
-      let inviteeSignupSuccess = false;
+      let inviteeSigninSuccess = false;
       await stepLogger.step("Invitee: Verify redirect to home", async () => {
         try {
           await page.waitForURL("/", { timeout: 20000 });
-          inviteeSignupSuccess = true;
+          inviteeSigninSuccess = true;
         } catch (error) {
-          inviteeSignupSuccess = false;
+          inviteeSigninSuccess = false;
         }
 
         await logTestResult(
           logger,
           page,
-          "Invitation - Invitee sign up",
-          formatTestConditions({ userType: "new user", worker: "invitee" }),
-          "Sign up successful",
-          inviteeSignupSuccess,
-          "signed up successfully",
-          "sign up failed"
+          "Invitation - Invitee sign in",
+          formatTestConditions({ userType: "invitee", worker: "invitee" }),
+          "Sign in successful",
+          inviteeSigninSuccess,
+          "signed in successfully",
+          "sign in failed"
         );
 
-        if (!inviteeSignupSuccess) {
-          throw new Error("Invitee sign up failed");
+        if (!inviteeSigninSuccess) {
+          throw new Error("Invitee sign in failed");
         }
       });
 
@@ -936,7 +799,55 @@ test.describe("Organization Invitation Tests", () => {
     );
     const workerIndex = testInfo.parallelIndex;
 
-    if (workerIndex === 1) {
+    if (workerIndex === 0) {
+      await stepLogger.step("Inviter: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
+      });
+
+      await stepLogger.step("Inviter: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+          timeout: 10000,
+        });
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
+        await page.waitForURL("/", { timeout: 20000 });
+      });
+
+      await stepLogger.step("Inviter: Get organization ID", async () => {
+        const inviter = await prisma.user.findUnique({
+          where: { email: inviterEmail },
+          include: { member: true },
+        });
+
+        if (!inviter || inviter.member.length === 0) {
+          throw new Error("Inviter organization not found");
+        }
+
+        inviterOrgId = inviter.member[0].organizationId;
+      });
+
+      await stepLogger.step("Inviter: Open avatar menu", async () => {
+        await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
+      });
+
+      await stepLogger.step("Inviter: Open invite dialog", async () => {
+        await clickByTestId(page, TestId.INVITE_USERS_BUTTON);
+      });
+
+      await stepLogger.step("Inviter: Send invitation", async () => {
+        await waitForElement(page, TestId.INVITE_DIALOG, 10000);
+        await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
+        await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
+      });
+
+      await stepLogger.step("Inviter: Wait for dialog to close", async () => {
+        await page.waitForSelector(`[data-testid="${TestId.INVITE_DIALOG}"]`, {
+          state: "hidden",
+          timeout: 10000,
+        });
+      });
+    } else if (workerIndex === 1) {
       logger.registerExpectedTest(
         "Accept - Click accept button",
         formatTestConditions({
@@ -980,8 +891,18 @@ test.describe("Organization Invitation Tests", () => {
         "Todo list data-organization-id matches inviter's org"
       );
 
-      await stepLogger.step("Invitee: Navigate to home", async () => {
-        await page.goto("/");
+      await stepLogger.step("Invitee: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
+      });
+
+      await stepLogger.step("Invitee: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+          timeout: 10000,
+        });
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
+        await page.waitForURL("/", { timeout: 20000 });
       });
 
       await stepLogger.step("Invitee: Wait for invitation toast", async () => {
@@ -1229,8 +1150,18 @@ test.describe("Organization Invitation Tests", () => {
     const workerIndex = testInfo.parallelIndex;
 
     if (workerIndex === 0) {
-      await stepLogger.step("Inviter: Navigate to home", async () => {
-        await page.goto("/");
+      await stepLogger.step("Inviter: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
+      });
+
+      await stepLogger.step("Inviter: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+          timeout: 10000,
+        });
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
+        await page.waitForURL("/", { timeout: 20000 });
       });
 
       await stepLogger.step("Inviter: Open avatar menu", async () => {
@@ -1279,8 +1210,18 @@ test.describe("Organization Invitation Tests", () => {
         "Declined organization does not appear in selector"
       );
 
-      await stepLogger.step("Invitee: Navigate to home", async () => {
-        await page.goto("/");
+      await stepLogger.step("Invitee: Navigate to sign-in page", async () => {
+        await page.goto("/sign-in");
+      });
+
+      await stepLogger.step("Invitee: Complete sign-in", async () => {
+        await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
+          timeout: 10000,
+        });
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
+        await page.waitForURL("/", { timeout: 20000 });
       });
 
       let invitationToastAppeared = false;

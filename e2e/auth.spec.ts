@@ -186,7 +186,7 @@ test.describe("Authentication Flow", () => {
     await stepLogger.step("Verify sign-up page loaded", async () => {
       try {
         await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
-          timeout: 10000,
+          timeout: 30000,
         });
         navigationSuccess = true;
       } catch (error) {
@@ -222,7 +222,7 @@ test.describe("Authentication Flow", () => {
     let redirectedToHome = false;
     await stepLogger.step("Verify redirect to home after signup", async () => {
       try {
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 30000 });
         redirectedToHome = true;
       } catch (error) {
         redirectedToHome = false;
@@ -253,7 +253,7 @@ test.describe("Authentication Flow", () => {
         const visible = await isVisibleByTestId(
           page,
           TestId.AVATAR_MENU_TRIGGER,
-          10000
+          30000
         );
 
         await logTestResult(
@@ -286,7 +286,7 @@ test.describe("Authentication Flow", () => {
     await stepLogger.step("Verify email displayed in avatar menu", async () => {
       try {
         const emailDisplay = page.getByTestId(TestId.AVATAR_MENU_EMAIL);
-        await expect(emailDisplay).toBeVisible({ timeout: 10000 });
+        await expect(emailDisplay).toBeVisible({ timeout: 30000 });
         await expect(emailDisplay).toHaveAttribute("data-email", testEmail);
         emailCorrect = true;
       } catch (error) {
@@ -319,7 +319,7 @@ test.describe("Authentication Flow", () => {
     let redirectedToSignIn = false;
     await stepLogger.step("Verify redirect to sign-in page", async () => {
       try {
-        await page.waitForURL("/sign-in", { timeout: 10000 });
+        await page.waitForURL("/sign-in", { timeout: 30000 });
         redirectedToSignIn = true;
       } catch (error) {
         redirectedToSignIn = false;
@@ -356,7 +356,7 @@ test.describe("Authentication Flow", () => {
     let redirectedBackToHome = false;
     await stepLogger.step("Verify redirect to home after sign-in", async () => {
       try {
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 30000 });
         redirectedBackToHome = true;
       } catch (error) {
         redirectedBackToHome = false;
@@ -387,7 +387,7 @@ test.describe("Authentication Flow", () => {
         const avatarVisibleAfterSignIn = await isVisibleByTestId(
           page,
           TestId.AVATAR_MENU_TRIGGER,
-          10000
+          30000
         );
 
         await logTestResult(

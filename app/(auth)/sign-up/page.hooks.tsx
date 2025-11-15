@@ -36,13 +36,13 @@ export const useSignUp = () => {
         setOrganizations(allData.organizations);
         setActiveOrganizationId(allData.activeOrganizationId);
         setTamagotchi(allData.activeTamagotchi);
+        queryClient.setQueryData(["user-with-all-data"], allData);
       }
 
-      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
-
-      return signUpResult.data;
+      return allData;
     },
-    onSuccess: () => {},
+    onSuccess: () => {
+    },
     onError: (error: Error) => {
       showErrorToast(error.message || "Failed to sign up", "Sign Up Failed");
     },

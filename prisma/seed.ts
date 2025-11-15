@@ -4,6 +4,8 @@ import { auth } from "../lib/auth";
 const prisma = new PrismaClient();
 
 const E2E_TEST_PASSWORD = "E2ETestPass123!";
+const INVITER_PASSWORD = "InviterPass123!";
+const INVITEE_PASSWORD = "InviteePass123!";
 
 async function main() {
   console.log("Seeding database...");
@@ -39,6 +41,46 @@ async function main() {
     }
   }
 
+  let inviterUser = await prisma.user.findUnique({
+    where: { email: "inviter@example.com" },
+  });
+
+  if (!inviterUser) {
+    await auth.api.signUpEmail({
+      body: {
+        email: "inviter@example.com",
+        password: INVITER_PASSWORD,
+        name: "Inviter User",
+      },
+    });
+    inviterUser = await prisma.user.findUnique({
+      where: { email: "inviter@example.com" },
+    });
+    if (!inviterUser) {
+      throw new Error("Failed to create inviter user");
+    }
+  }
+
+  let inviteeUser = await prisma.user.findUnique({
+    where: { email: "invitee@example.com" },
+  });
+
+  if (!inviteeUser) {
+    await auth.api.signUpEmail({
+      body: {
+        email: "invitee@example.com",
+        password: INVITEE_PASSWORD,
+        name: "Invitee User",
+      },
+    });
+    inviteeUser = await prisma.user.findUnique({
+      where: { email: "invitee@example.com" },
+    });
+    if (!inviteeUser) {
+      throw new Error("Failed to create invitee user");
+    }
+  }
+
   const org1 = await prisma.organization.upsert({
     where: { id: "test-org-1" },
     update: {},
@@ -68,6 +110,90 @@ async function main() {
       slug: "e2e-test-org",
     },
   });
+
+  const inviterOrg = await prisma.organization.findFirst({
+    where: {
+      member: {
+        some: { userId: inviterUser.id },
+      },
+    },
+  });
+
+  const inviteeOrg = await prisma.organization.findFirst({
+    where: {
+      member: {
+        some: { userId: inviteeUser.id },
+      },
+    },
+  });
+
+  if (!inviterOrg) {
+    const newInviterOrg = await prisma.organization.create({
+      data: {
+        name: "Inviter User Tasks",
+        slug: "inviter-user-tasks",
+        createdBy: inviterUser.id,
+      },
+    });
+
+    await prisma.member.create({
+      data: {
+        userId: inviterUser.id,
+        organizationId: newInviterOrg.id,
+        role: "owner",
+      },
+    });
+
+    await prisma.tamagotchi.create({
+      data: {
+        organizationId: newInviterOrg.id,
+        hunger: 30,
+        happiness: 70,
+        wasteCount: 0,
+        color: "#f59e0b",
+        species: "species5",
+        age: 1,
+        feedCount: 10,
+        lastFedAt: new Date(),
+        lastCleanedAt: new Date(),
+        lastCheckedAt: new Date(),
+      },
+    });
+  }
+
+  if (!inviteeOrg) {
+    const newInviteeOrg = await prisma.organization.create({
+      data: {
+        name: "Invitee User Tasks",
+        slug: "invitee-user-tasks",
+        createdBy: inviteeUser.id,
+      },
+    });
+
+    await prisma.member.create({
+      data: {
+        userId: inviteeUser.id,
+        organizationId: newInviteeOrg.id,
+        role: "owner",
+      },
+    });
+
+    await prisma.tamagotchi.create({
+      data: {
+        organizationId: newInviteeOrg.id,
+        hunger: 20,
+        happiness: 85,
+        wasteCount: 0,
+        color: "#ec4899",
+        species: "species2",
+        age: 1,
+        feedCount: 15,
+        lastFedAt: new Date(),
+        lastCleanedAt: new Date(),
+        lastCheckedAt: new Date(),
+      },
+    });
+  }
 
   await prisma.member.upsert({
     where: {
@@ -210,6 +336,11 @@ async function main() {
   console.log("Email: e2e-test@example.com");
   console.log(`Password: ${E2E_TEST_PASSWORD}`);
   console.log("Organization: E2E Test Organization - species1, age 0 (egg), purple tamagotchi");
+  console.log("\nInvitation Test Accounts:");
+  console.log("Inviter: inviter@example.com");
+  console.log(`Password: ${INVITER_PASSWORD}`);
+  console.log("Invitee: invitee@example.com");
+  console.log(`Password: ${INVITEE_PASSWORD}`);
 }
 
 main()

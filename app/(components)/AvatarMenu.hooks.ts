@@ -16,6 +16,10 @@ import {
 import { InvitationResult, SendInvitationsParams } from "./AvatarMenu.types";
 import { useOrganizationStore, useAppStore, useTamagotchiStore } from "@/app/layout.stores";
 import { OrganizationWithTamagotchi } from "@/app/layout.types";
+import { getUserWithAllDataAction } from "@/app/layout.actions";
+import { getTodosAction } from "@/app/page.actions";
+import { getTamagotchiAction } from "./Tamagotchi.actions";
+import { useTodoStore } from "@/app/page.stores";
 
 
 export const useSetActiveOrganization = () => {
@@ -40,22 +44,51 @@ export const useSetActiveOrganization = () => {
 
 export const useCreateOrganization = () => {
   const queryClient = useQueryClient();
+  const { setUser, setActiveOrganizationId } = useAppStore();
+  const { setOrganizations } = useOrganizationStore();
+  const { setTamagotchi } = useTamagotchiStore();
+  const { setTodos } = useTodoStore();
 
   return useMutation({
     mutationFn: async ({ name, slug }: { name: string; slug: string }) => {
       const { data, error } = await createOrganizationAction(name, slug);
       if (error) throw new Error(error);
-      return data as { id: string } | null;
-    },
-    onSuccess: async (data) => {
+
       if (data?.id) {
         await organization.setActive({ organizationId: data.id });
 
-        queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
-        queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
-        queryClient.invalidateQueries({ queryKey: ["todos"] });
-        queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+        const [
+          { data: allData },
+          { data: todos },
+          { data: tamagotchi }
+        ] = await Promise.all([
+          getUserWithAllDataAction(),
+          getTodosAction(),
+          getTamagotchiAction()
+        ]);
+
+        if (allData) {
+          setUser(allData.user);
+          setOrganizations(allData.organizations);
+          setActiveOrganizationId(allData.activeOrganizationId);
+          setTamagotchi(allData.activeTamagotchi);
+          queryClient.setQueryData(["user-with-all-data"], allData);
+        }
+
+        if (todos) {
+          setTodos(todos);
+          queryClient.setQueryData(["todos"], todos);
+        }
+
+        if (tamagotchi) {
+          setTamagotchi(tamagotchi);
+          queryClient.setQueryData(["tamagotchi"], tamagotchi);
+        }
       }
+
+      return data as { id: string } | null;
+    },
+    onSuccess: async () => {
       showSuccessToast("Organization created successfully");
     },
     onError: (error: Error) => {

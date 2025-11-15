@@ -9,6 +9,9 @@ import { SignInData } from "./page.types";
 import { getUserOrganizationsAction } from "@/app/(components)/AvatarMenu.actions";
 import { useAppStore, useOrganizationStore, useTamagotchiStore } from "@/app/layout.stores";
 import { getUserWithAllDataAction } from "@/app/layout.actions";
+import { getTodosAction } from "@/app/page.actions";
+import { getTamagotchiAction } from "@/app/(components)/Tamagotchi.actions";
+import { useTodoStore } from "@/app/page.stores";
 
 export const useSignIn = () => {
   const queryClient = useQueryClient();
@@ -16,6 +19,7 @@ export const useSignIn = () => {
   const { setUser, setActiveOrganizationId } = useAppStore();
   const { setOrganizations } = useOrganizationStore();
   const { setTamagotchi } = useTamagotchiStore();
+  const { setTodos } = useTodoStore();
 
   return useMutation({
     mutationFn: async (signInData: SignInData) => {
@@ -46,21 +50,38 @@ export const useSignIn = () => {
         }
       }
 
-      const { data: allData } = await getUserWithAllDataAction();
+      const [
+        { data: allData },
+        { data: todos },
+        { data: tamagotchi }
+      ] = await Promise.all([
+        getUserWithAllDataAction(),
+        getTodosAction(),
+        getTamagotchiAction()
+      ]);
 
       if (allData) {
         setUser(allData.user);
         setOrganizations(allData.organizations);
         setActiveOrganizationId(allData.activeOrganizationId);
         setTamagotchi(allData.activeTamagotchi);
+        queryClient.setQueryData(["user-with-all-data"], allData);
       }
 
-      queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
+      if (todos) {
+        setTodos(todos);
+        queryClient.setQueryData(["todos"], todos);
+      }
+
+      if (tamagotchi) {
+        setTamagotchi(tamagotchi);
+        queryClient.setQueryData(["tamagotchi"], tamagotchi);
+      }
 
       showSuccessToast("Signed in successfully");
       router.push(configuration.paths.home);
 
-      return result.data;
+      return allData;
     },
     onSuccess: () => {
     },
