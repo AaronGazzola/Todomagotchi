@@ -1,17 +1,14 @@
 "use server";
 
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
-import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Todo } from "@prisma/client";
-import { headers } from "next/headers";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 
 export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -34,8 +31,7 @@ export const createTodoAction = async (
   text: string
 ): Promise<ActionResponse<Todo>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -65,8 +61,7 @@ export const toggleTodoAction = async (
   id: string
 ): Promise<ActionResponse<Todo>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -108,8 +103,7 @@ export const deleteTodoAction = async (
   id: string
 ): Promise<ActionResponse<void>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 

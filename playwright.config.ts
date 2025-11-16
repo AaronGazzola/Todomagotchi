@@ -29,6 +29,7 @@ export default defineConfig({
     : "test-results/temp/artifacts",
   quiet: false,
   globalSetup: "./e2e/utils/global-setup.ts",
+  timeout: 120000,
   use: {
     baseURL,
     trace: enableTrace ? "on" : "on-first-retry",

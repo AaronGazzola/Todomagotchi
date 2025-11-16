@@ -1273,7 +1273,11 @@ Required in `.env` and `.env.local`:
 - **Retries:** 2 in CI, 0 locally
 - **Screenshots:** Only on failure
 - **Traces:** On first retry (standard mode) or all tests (trace mode)
-- **Timeout:** 120000ms (2 minutes) for both test execution and web server startup
+- **Test Timeout:** 120000ms (2 minutes) - Global timeout for individual test execution
+- **Action Timeout:** 10000ms - Timeout for individual Playwright actions
+- **Navigation Timeout:** 10000ms - Timeout for page navigation operations
+
+**Important:** The global test timeout (120s) must be set in `playwright.config.ts` to prevent tests from timing out before longer operations (like authentication flows) can complete. Playwright's default is 30s, which is insufficient for complex multi-step tests.
 
 ### Worker Configuration
 

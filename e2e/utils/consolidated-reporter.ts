@@ -430,6 +430,7 @@ export default class SummaryReporter implements Reporter {
         if (test.consoleLogs && test.consoleLogs.length > 0) {
           const errors = test.consoleLogs.filter(log => log.type === 'error');
           const warnings = test.consoleLogs.filter(log => log.type === 'warning');
+          const others = test.consoleLogs.filter(log => log.type !== 'error' && log.type !== 'warning');
 
           if (errors.length > 0) {
             readme += `**Browser Console Errors:**\n\`\`\`\n`;
@@ -445,6 +446,17 @@ export default class SummaryReporter implements Reporter {
           if (warnings.length > 0) {
             readme += `**Browser Console Warnings:**\n\`\`\`\n`;
             warnings.forEach(log => {
+              readme += `[${log.type.toUpperCase()}] ${log.text}\n`;
+              if (log.location) {
+                readme += `  Location: ${log.location}\n`;
+              }
+            });
+            readme += `\`\`\`\n\n`;
+          }
+
+          if (others.length > 0) {
+            readme += `**Browser Console Logs:**\n\`\`\`\n`;
+            others.forEach(log => {
               readme += `[${log.type.toUpperCase()}] ${log.text}\n`;
               if (log.location) {
                 readme += `  Location: ${log.location}\n`;

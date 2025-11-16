@@ -15,9 +15,7 @@ export const getUserOrganizationsAction = async (): Promise<
   ActionResponse<unknown>
 > => {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { db, session } = await getAuthenticatedClient();
 
     if (!session?.user) {
       return getActionResponse({ data: [] });
@@ -32,8 +30,6 @@ export const getUserOrganizationsAction = async (): Promise<
       name: string;
     }>;
     const orgIds = organizations.map((o) => o.id);
-
-    const { db } = await getAuthenticatedClient();
 
     const tamagotchis = await db.tamagotchi.findMany({
       where: { organizationId: { in: orgIds } },
@@ -59,15 +55,11 @@ export const setActiveOrganizationAction = async (
   organizationId: string
 ): Promise<ActionResponse<unknown>> => {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { db, session } = await getAuthenticatedClient();
 
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-
-    const { db } = await getAuthenticatedClient();
 
     await db.user.update({
       where: { id: session.user.id },
@@ -104,15 +96,11 @@ export const getOrganizationTamagotchiColorAction = async (
   organizationId: string
 ): Promise<ActionResponse<string>> => {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { db, session } = await getAuthenticatedClient();
 
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-
-    const { db } = await getAuthenticatedClient();
 
     const tamagotchi = await db.tamagotchi.findUnique({
       where: { organizationId },
@@ -129,15 +117,11 @@ export const updateTamagotchiColorAction = async (
   color: string
 ): Promise<ActionResponse<void>> => {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { db, session } = await getAuthenticatedClient();
 
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-
-    const { db } = await getAuthenticatedClient();
 
     const user = await db.user.findUnique({
       where: { id: session.user.id },
@@ -167,15 +151,11 @@ export const resetOrganizationDataAction = async (): Promise<
   ActionResponse<void>
 > => {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { db, session } = await getAuthenticatedClient();
 
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-
-    const { db } = await getAuthenticatedClient();
 
     const user = await db.user.findUnique({
       where: { id: session.user.id },

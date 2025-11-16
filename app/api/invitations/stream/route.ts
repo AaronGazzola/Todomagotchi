@@ -1,10 +1,7 @@
-import { auth } from "@/lib/auth";
+import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { NextRequest } from "next/server";
-import { headers } from "next/headers";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,7 +10,7 @@ export async function GET(request: NextRequest) {
   const encoder = new TextEncoder();
 
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { session } = await getAuthenticatedClient();
 
     if (!session?.user?.email) {
       return new Response("Unauthorized", { status: 401 });

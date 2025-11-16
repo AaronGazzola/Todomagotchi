@@ -1,19 +1,16 @@
 "use server";
 
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
-import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { createRLSClient } from "@/lib/prisma-rls";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Tamagotchi } from "@prisma/client";
-import { headers } from "next/headers";
 
 export const getTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi | null>
 > => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -123,8 +120,7 @@ export const feedTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -149,8 +145,7 @@ export const updateTamagotchiHungerAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -207,8 +202,7 @@ export const updateTamagotchiSpeciesAction = async (
   species: string
 ): Promise<ActionResponse<Tamagotchi>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
@@ -233,8 +227,7 @@ export const updateTamagotchiAgeAction = async (
   age: number
 ): Promise<ActionResponse<Tamagotchi>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-    const session = await auth.api.getSession({ headers: await headers() });
+    const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session?.session?.activeOrganizationId;
 
