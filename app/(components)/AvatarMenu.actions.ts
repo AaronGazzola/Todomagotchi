@@ -59,9 +59,19 @@ export const setActiveOrganizationAction = async (
   organizationId: string
 ): Promise<ActionResponse<unknown>> => {
   try {
-    await auth.api.setActiveOrganization({
-      body: { organizationId },
+    const session = await auth.api.getSession({
       headers: await headers(),
+    });
+
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const { db } = await getAuthenticatedClient();
+
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { activeOrganizationId: organizationId },
     });
 
     return getActionResponse();
@@ -73,7 +83,7 @@ export const setActiveOrganizationAction = async (
 export const createOrganizationAction = async (
   name: string,
   slug: string
-): Promise<ActionResponse<unknown>> => {
+): Promise<ActionResponse<{ id: string; name: string; slug: string }>> => {
   try {
     const result = await auth.api.createOrganization({
       body: { name, slug },
@@ -119,13 +129,22 @@ export const updateTamagotchiColorAction = async (
   color: string
 ): Promise<ActionResponse<void>> => {
   try {
-    const { db } = await getAuthenticatedClient();
-
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const { db } = await getAuthenticatedClient();
+
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+
+    const activeOrganizationId = user?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -148,13 +167,22 @@ export const resetOrganizationDataAction = async (): Promise<
   ActionResponse<void>
 > => {
   try {
-    const { db } = await getAuthenticatedClient();
-
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const { db } = await getAuthenticatedClient();
+
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+
+    const activeOrganizationId = user?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");

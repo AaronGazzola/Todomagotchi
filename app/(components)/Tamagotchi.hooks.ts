@@ -11,6 +11,7 @@ import {
 } from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
 import { useTamagotchiStore, useAppStore } from "@/app/layout.stores";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const useGetTamagotchi = () => {
   const { setTamagotchi } = useTamagotchiStore();
@@ -19,7 +20,23 @@ export const useGetTamagotchi = () => {
   const query = useQuery({
     queryKey: ["tamagotchi"],
     queryFn: async () => {
+      conditionalLog(
+        {
+          message: "getTamagotchiAction - start",
+          activeOrganizationId,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI }
+      );
       const { data, error } = await getTamagotchiAction();
+      conditionalLog(
+        {
+          message: "getTamagotchiAction - result",
+          hasData: !!data,
+          error: error || null,
+          tamagotchi: data || null,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI }
+      );
       if (error) throw new Error(error);
       return data;
     },
@@ -30,8 +47,26 @@ export const useGetTamagotchi = () => {
   useEffect(() => {
     if (query.data) {
       setTamagotchi(query.data);
+      conditionalLog(
+        {
+          message: "tamagotchi store updated",
+          tamagotchi: query.data,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI }
+      );
     }
   }, [query.data, setTamagotchi]);
+
+  conditionalLog(
+    {
+      message: "useGetTamagotchi - query state",
+      isLoading: query.isLoading,
+      isFetching: query.isFetching,
+      isEnabled: !!activeOrganizationId,
+      hasData: !!query.data,
+    },
+    { label: LOG_LABELS.TAMAGOTCHI }
+  );
 
   return query;
 };

@@ -6,7 +6,7 @@ import { Tamagotchi } from "@/app/(components)/Tamagotchi";
 import { TodoList } from "@/app/(components)/TodoList";
 import { useAppStore } from "./layout.stores";
 import { usePageData } from "./page.hooks";
-import { useTodosSSE } from "./page.sse";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export default function Home() {
   const { isLoading } = usePageData();
@@ -14,7 +14,14 @@ export default function Home() {
   const { activeOrganizationId } = useAppStore();
   const hasActiveOrganization = !!activeOrganizationId;
 
-  useTodosSSE(hasActiveOrganization);
+  conditionalLog(
+    {
+      isLoading,
+      activeOrganizationId,
+      hasActiveOrganization,
+    },
+    { label: LOG_LABELS.HOME_PAGE }
+  );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">

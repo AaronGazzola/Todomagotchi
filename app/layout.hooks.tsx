@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuthCookiesAction, getUserWithAllDataAction } from "./layout.actions";
 import { useAppStore, useOrganizationStore, useTamagotchiStore } from "./layout.stores";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const useGetUser = () => {
   const { setUser, setActiveOrganizationId, reset: resetApp } = useAppStore();
@@ -18,7 +19,23 @@ export const useGetUser = () => {
   return useQuery({
     queryKey: ["user-with-all-data"],
     queryFn: async () => {
+      conditionalLog(
+        { message: "getUserWithAllDataAction - start" },
+        { label: LOG_LABELS.AUTH }
+      );
       const { data, error } = await getUserWithAllDataAction();
+      conditionalLog(
+        {
+          message: "getUserWithAllDataAction - result",
+          hasData: !!data,
+          error: error || null,
+          user: data?.user || null,
+          organizations: data?.organizations || null,
+          activeOrganizationId: data?.activeOrganizationId || null,
+          activeTamagotchi: data?.activeTamagotchi || null,
+        },
+        { label: LOG_LABELS.AUTH }
+      );
       if (!data || error) {
         await clearAuthCookiesAction();
         resetApp();
@@ -35,6 +52,13 @@ export const useGetUser = () => {
         setOrganizations(data.organizations);
         setActiveOrganizationId(data.activeOrganizationId);
         setTamagotchi(data.activeTamagotchi);
+        conditionalLog(
+          {
+            message: "stores updated",
+            activeOrganizationId: data.activeOrganizationId,
+          },
+          { label: LOG_LABELS.AUTH }
+        );
       }
 
       return data;

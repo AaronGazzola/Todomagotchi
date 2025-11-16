@@ -2,6 +2,7 @@ import { User } from "better-auth";
 import { cookies, headers } from "next/headers";
 import { auth, Session } from "./auth";
 import { createRLSClient } from "./prisma-rls";
+import { prisma } from "./prisma";
 
 export async function getAuthenticatedClient(user?: User): Promise<{
   db: ReturnType<typeof createRLSClient>;
@@ -19,7 +20,12 @@ export async function getAuthenticatedClient(user?: User): Promise<{
     throw new Error("Unauthorized");
   }
 
-  const activeOrganizationId = session?.session?.activeOrganizationId;
+  const userRecord = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { activeOrganizationId: true },
+  });
+
+  const activeOrganizationId = userRecord?.activeOrganizationId;
 
   if (!activeOrganizationId) {
     throw new Error("No active organization");

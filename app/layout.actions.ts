@@ -57,7 +57,16 @@ export const getUserWithAllDataAction = async (): Promise<
         tamagotchi: tamagotchis.find((t) => t.organizationId === org.id) || null,
       }));
 
-    const activeOrganizationId = session.session?.activeOrganizationId || null;
+    let activeOrganizationId = prismaUser.activeOrganizationId;
+
+    if (!activeOrganizationId && organizations.length > 0) {
+      activeOrganizationId = organizations[0].id;
+      await prisma.user.update({
+        where: { id: prismaUser.id },
+        data: { activeOrganizationId },
+      });
+    }
+
     const activeTamagotchi = activeOrganizationId
       ? tamagotchis.find((t) => t.organizationId === activeOrganizationId) || null
       : null;

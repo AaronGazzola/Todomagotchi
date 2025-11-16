@@ -14,6 +14,9 @@ export enum LOG_LABELS {
   REALTIME = "realtime",
   THEME = "theme",
   APP_STRUCTURE = "app-structure",
+  HOME_PAGE = "home-page",
+  TODOS = "todos",
+  TAMAGOTCHI = "tamagotchi",
 }
 
 interface ConditionalLogOptions {

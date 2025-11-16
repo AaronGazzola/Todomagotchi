@@ -34,7 +34,7 @@ Use `data-state` attributes to expose element states for testing (e.g., `data-st
 
 ### Rule 4: Always Prefer Timeouts Over Hard-Coded Waits
 
-**GLOBAL TIMEOUT STANDARD: All timeouts in tests must be set to 10 seconds (10000ms).**
+Always use explicit timeout parameters in Playwright operations rather than hard-coded waits. Use appropriate timeout values based on the operation being performed.
 
 ### Rule 5: Isolate Test Data
 

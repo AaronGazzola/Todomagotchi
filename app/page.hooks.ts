@@ -12,6 +12,7 @@ import { useTodoStore } from "./page.stores";
 import { useGetUser } from "./layout.hooks";
 import { useGetTamagotchi } from "./(components)/Tamagotchi.hooks";
 import { useEffect } from "react";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const useGetTodos = () => {
   const { setTodos } = useTodoStore();
@@ -19,7 +20,21 @@ export const useGetTodos = () => {
   const query = useQuery({
     queryKey: ["todos"],
     queryFn: async () => {
+      conditionalLog(
+        { message: "getTodosAction - start" },
+        { label: LOG_LABELS.TODOS }
+      );
       const { data, error } = await getTodosAction();
+      conditionalLog(
+        {
+          message: "getTodosAction - result",
+          hasData: !!data,
+          error: error || null,
+          todosCount: data?.length || 0,
+          todos: data || [],
+        },
+        { label: LOG_LABELS.TODOS }
+      );
       if (error) throw new Error(error);
       return data || [];
     },
@@ -29,6 +44,13 @@ export const useGetTodos = () => {
   useEffect(() => {
     if (query.data) {
       setTodos(query.data);
+      conditionalLog(
+        {
+          message: "todos store updated",
+          todosCount: query.data.length,
+        },
+        { label: LOG_LABELS.TODOS }
+      );
     }
   }, [query.data, setTodos]);
 

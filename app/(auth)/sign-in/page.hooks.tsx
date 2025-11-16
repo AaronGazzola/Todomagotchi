@@ -2,11 +2,11 @@
 
 import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { configuration } from "@/configuration";
-import { signIn, organization, getSession } from "@/lib/auth-client";
+import { signIn } from "@/lib/auth-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SignInData } from "./page.types";
-import { getUserOrganizationsAction } from "@/app/(components)/AvatarMenu.actions";
+import { getUserOrganizationsAction, setActiveOrganizationAction } from "@/app/(components)/AvatarMenu.actions";
 import { useAppStore, useOrganizationStore, useTamagotchiStore } from "@/app/layout.stores";
 import { getUserWithAllDataAction } from "@/app/layout.actions";
 import { getTodosAction } from "@/app/page.actions";
@@ -32,30 +32,18 @@ export const useSignIn = () => {
         throw new Error(result.error.message || "Failed to sign in");
       }
 
-      let sessionResult = await getSession();
-
-      if (!sessionResult?.data?.session?.activeOrganizationId) {
-        const { data: organizations } = await getUserOrganizationsAction();
-        if (organizations && Array.isArray(organizations) && organizations.length > 0) {
-          await organization.setActive({ organizationId: organizations[0].id });
-          let retries = 0;
-          while (retries < 10) {
-            sessionResult = await getSession();
-            if (sessionResult?.data?.session?.activeOrganizationId) {
-              break;
-            }
-            await new Promise(resolve => setTimeout(resolve, 200));
-            retries++;
-          }
-        }
+      const { data: organizations } = await getUserOrganizationsAction();
+      if (organizations && Array.isArray(organizations) && organizations.length > 0) {
+        const { error } = await setActiveOrganizationAction(organizations[0].id);
+        if (error) throw new Error(error);
       }
 
+      const { data: allData } = await getUserWithAllDataAction();
+
       const [
-        { data: allData },
         { data: todos },
         { data: tamagotchi }
       ] = await Promise.all([
-        getUserWithAllDataAction(),
         getTodosAction(),
         getTamagotchiAction()
       ]);

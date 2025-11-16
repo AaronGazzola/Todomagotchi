@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { TestId } from "@/test.types";
 import { useState } from "react";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 interface TodoListProps {
   onTodoAction?: () => void;
@@ -24,6 +25,17 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
   const activeOrganizationId = useAppStore((state) => state.activeOrganizationId);
 
   const todos = useTodoStore((state) => state.todos) || [];
+
+  conditionalLog(
+    {
+      message: "TodoList render",
+      isLoading,
+      activeOrganizationId,
+      todosCount: todos.length,
+      todos,
+    },
+    { label: LOG_LABELS.TODOS }
+  );
   const { mutate: createTodo, isPending: isCreating } = useCreateTodo();
   const { mutate: toggleTodo } = useToggleTodo();
   const { mutate: deleteTodo } = useDeleteTodo();

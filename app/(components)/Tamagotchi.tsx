@@ -17,11 +17,11 @@ import {
 } from "./Tamagotchi.hooks";
 import { useTamagotchiStore } from "@/app/layout.stores";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
-import { useTamagotchiSSE } from "./Tamagotchi.sse";
 import {
   getSpriteForTamagotchi,
   type TamagotchiSpecies,
 } from "./Tamagotchi.utils";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 function SpriteRenderer({
   grid,
@@ -95,7 +95,6 @@ interface TamagotchiProps {
 
 export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
   const tamagotchi = useTamagotchiStore((state) => state.tamagotchi);
-  useTamagotchiSSE(!!tamagotchi);
   const { mutate: feedTamagotchi, isPending: isFeeding } = useFeedTamagotchi();
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
   const { mutate: updateAge } = useUpdateTamagotchiAge();
@@ -108,6 +107,16 @@ export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
   const color = tamagotchi?.color || "#1f2937";
   const species = (tamagotchi?.species || "species0") as TamagotchiSpecies;
   const age = tamagotchi?.age || 0;
+
+  conditionalLog(
+    {
+      message: "Tamagotchi render",
+      isLoading,
+      hasTamagotchi: !!tamagotchi,
+      tamagotchi,
+    },
+    { label: LOG_LABELS.TAMAGOTCHI }
+  );
 
   const currentSprite = useMemo(
     () => getSpriteForTamagotchi(species, age),
