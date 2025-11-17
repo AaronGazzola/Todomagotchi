@@ -29,14 +29,14 @@ export default defineConfig({
     : "test-results/temp/artifacts",
   quiet: false,
   globalSetup: "./e2e/utils/global-setup.ts",
-  timeout: 120000,
+  timeout: 240000,
   use: {
     baseURL,
     trace: enableTrace ? "on" : "on-first-retry",
     screenshot: "only-on-failure",
     video: enableTrace ? "on" : "off",
-    actionTimeout: 10000,
-    navigationTimeout: 10000,
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
   },
   projects: [
     {

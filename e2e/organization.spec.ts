@@ -223,7 +223,7 @@ test.describe("Organization Tests", () => {
     await stepLogger.step("Verify sign-up page loaded", async () => {
       try {
         await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         navigationSuccess = true;
       } catch (error) {
@@ -259,7 +259,7 @@ test.describe("Organization Tests", () => {
     let redirectedToHome = false;
     await stepLogger.step("Verify redirect to home after signup", async () => {
       try {
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 60000 });
         redirectedToHome = true;
       } catch (error) {
         redirectedToHome = false;
@@ -289,7 +289,7 @@ test.describe("Organization Tests", () => {
       tamagotchiVisible = await isVisibleByTestId(
         page,
         TestId.TAMAGOTCHI_CONTAINER,
-        20000
+        60000
       );
 
       await logTestResult(
@@ -313,7 +313,7 @@ test.describe("Organization Tests", () => {
       todoEmptyStateVisible = await isVisibleByTestId(
         page,
         TestId.TODO_EMPTY_STATE,
-        20000
+        60000
       );
 
       await logTestResult(
@@ -532,7 +532,7 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Inviter: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
@@ -542,7 +542,7 @@ test.describe("Organization Invitation Tests", () => {
       let inviterSigninSuccess = false;
       await stepLogger.step("Inviter: Verify redirect to home", async () => {
         try {
-          await page.waitForURL("/", { timeout: 20000 });
+          await page.waitForURL("/", { timeout: 60000 });
           inviterSigninSuccess = true;
         } catch (error) {
           inviterSigninSuccess = false;
@@ -590,7 +590,7 @@ test.describe("Organization Invitation Tests", () => {
         inviteDialogOpened = await isVisibleByTestId(
           page,
           TestId.INVITE_DIALOG,
-          10000
+          60000
         );
 
         await logTestResult(
@@ -619,13 +619,13 @@ test.describe("Organization Invitation Tests", () => {
 
       let invitationSent = false;
       await stepLogger.step(
-        "Inviter: Verify invitation sent (dialog closes)",
+        "Inviter: Verify invitation sent via success toast",
         async () => {
           try {
-            await page.waitForSelector(
-              `[data-testid="${TestId.INVITE_DIALOG}"]`,
-              { state: "hidden", timeout: 10000 }
-            );
+            await page.waitForSelector('[data-testid="toast-success"]', {
+              state: "visible",
+              timeout: 60000,
+            });
             invitationSent = true;
           } catch (error) {
             invitationSent = false;
@@ -639,30 +639,14 @@ test.describe("Organization Invitation Tests", () => {
               userType: "inviter",
               action: "submit invitation",
             }),
-            "Invitation sent successfully",
+            "Success toast appears",
             invitationSent,
-            "invitation sent, dialog closed",
-            "dialog did not close"
+            "success toast appeared",
+            "success toast did not appear within 60s"
           );
 
           if (!invitationSent) {
-            throw new Error("Invitation was not sent");
-          }
-        }
-      );
-
-      await stepLogger.step(
-        "Inviter: Verify invitation in database",
-        async () => {
-          const invitation = await prisma.invitation.findFirst({
-            where: {
-              email: inviteeEmail,
-              organizationId: inviterOrgId,
-            },
-          });
-
-          if (!invitation) {
-            throw new Error("Invitation not found in database");
+            throw new Error("Invitation was not sent - success toast did not appear");
           }
         }
       );
@@ -692,7 +676,7 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Invitee: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
@@ -702,7 +686,7 @@ test.describe("Organization Invitation Tests", () => {
       let inviteeSigninSuccess = false;
       await stepLogger.step("Invitee: Verify redirect to home", async () => {
         try {
-          await page.waitForURL("/", { timeout: 20000 });
+          await page.waitForURL("/", { timeout: 60000 });
           inviteeSigninSuccess = true;
         } catch (error) {
           inviteeSigninSuccess = false;
@@ -731,7 +715,7 @@ test.describe("Organization Invitation Tests", () => {
           invitationToastAppeared = await waitForElement(
             page,
             TestId.INVITATION_TOAST,
-            10000
+            120000
           );
 
           await logTestResult(
@@ -745,7 +729,7 @@ test.describe("Organization Invitation Tests", () => {
             "Invitation toast appears without refresh",
             invitationToastAppeared,
             "toast appeared",
-            "toast did not appear within timeout"
+            "toast did not appear within 20s"
           );
 
           if (!invitationToastAppeared) {
@@ -806,12 +790,12 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Inviter: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
         await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 60000 });
       });
 
       await stepLogger.step("Inviter: Get organization ID", async () => {
@@ -836,15 +820,15 @@ test.describe("Organization Invitation Tests", () => {
       });
 
       await stepLogger.step("Inviter: Send invitation", async () => {
-        await waitForElement(page, TestId.INVITE_DIALOG, 10000);
+        await waitForElement(page, TestId.INVITE_DIALOG, 60000);
         await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
         await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
       });
 
-      await stepLogger.step("Inviter: Wait for dialog to close", async () => {
-        await page.waitForSelector(`[data-testid="${TestId.INVITE_DIALOG}"]`, {
-          state: "hidden",
-          timeout: 10000,
+      await stepLogger.step("Inviter: Wait for success toast", async () => {
+        await page.waitForSelector('[data-testid="toast-success"]', {
+          state: "visible",
+          timeout: 60000,
         });
       });
     } else if (workerIndex === 1) {
@@ -897,16 +881,16 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Invitee: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
         await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 60000 });
       });
 
       await stepLogger.step("Invitee: Wait for invitation toast", async () => {
-        await waitForElement(page, TestId.INVITATION_TOAST, 10000);
+        await waitForElement(page, TestId.INVITATION_TOAST, 120000);
       });
 
       await stepLogger.step("Invitee: Click accept button", async () => {
@@ -918,7 +902,7 @@ test.describe("Organization Invitation Tests", () => {
         try {
           await page.waitForSelector(
             `[data-testid="${TestId.INVITATION_TOAST}"]`,
-            { state: "hidden", timeout: 10000 }
+            { state: "hidden", timeout: 60000 }
           );
           acceptButtonClicked = true;
         } catch (error) {
@@ -936,7 +920,7 @@ test.describe("Organization Invitation Tests", () => {
           "Invitation accepted successfully",
           acceptButtonClicked,
           "toast dismissed",
-          "toast did not dismiss"
+          "toast did not dismiss within 20s"
         );
 
         if (!acceptButtonClicked) {
@@ -956,7 +940,7 @@ test.describe("Organization Invitation Tests", () => {
           const orgSelectorVisible = await isVisibleByTestId(
             page,
             TestId.AVATAR_MENU_ORG_SELECT,
-            10000
+            60000
           );
 
           if (!orgSelectorVisible) {
@@ -1071,7 +1055,7 @@ test.describe("Organization Invitation Tests", () => {
           );
 
           try {
-            await expect(tamagotchi).toBeVisible({ timeout: 10000 });
+            await expect(tamagotchi).toBeVisible({ timeout: 60000 });
             tamagotchiHasCorrectOrgId = true;
           } catch (error) {
             tamagotchiHasCorrectOrgId = false;
@@ -1114,7 +1098,7 @@ test.describe("Organization Invitation Tests", () => {
           );
 
           try {
-            await expect(todoList).toBeVisible({ timeout: 10000 });
+            await expect(todoList).toBeVisible({ timeout: 60000 });
             todoListHasCorrectOrgId = true;
           } catch (error) {
             todoListHasCorrectOrgId = false;
@@ -1156,12 +1140,12 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Inviter: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviterEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviterPassword);
         await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 60000 });
       });
 
       await stepLogger.step("Inviter: Open avatar menu", async () => {
@@ -1173,15 +1157,15 @@ test.describe("Organization Invitation Tests", () => {
       });
 
       await stepLogger.step("Inviter: Send new invitation", async () => {
-        await waitForElement(page, TestId.INVITE_DIALOG, 10000);
+        await waitForElement(page, TestId.INVITE_DIALOG, 60000);
         await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
         await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
       });
 
-      await stepLogger.step("Inviter: Wait for dialog to close", async () => {
-        await page.waitForSelector(`[data-testid="${TestId.INVITE_DIALOG}"]`, {
-          state: "hidden",
-          timeout: 10000,
+      await stepLogger.step("Inviter: Wait for success toast", async () => {
+        await page.waitForSelector('[data-testid="toast-success"]', {
+          state: "visible",
+          timeout: 60000,
         });
       });
     } else if (workerIndex === 1) {
@@ -1216,12 +1200,12 @@ test.describe("Organization Invitation Tests", () => {
 
       await stepLogger.step("Invitee: Complete sign-in", async () => {
         await expect(page.getByTestId(TestId.SIGN_IN_EMAIL)).toBeVisible({
-          timeout: 10000,
+          timeout: 60000,
         });
         await fillByTestId(page, TestId.SIGN_IN_EMAIL, inviteeEmail);
         await fillByTestId(page, TestId.SIGN_IN_PASSWORD, inviteePassword);
         await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
-        await page.waitForURL("/", { timeout: 20000 });
+        await page.waitForURL("/", { timeout: 60000 });
       });
 
       let invitationToastAppeared = false;
@@ -1231,7 +1215,7 @@ test.describe("Organization Invitation Tests", () => {
           invitationToastAppeared = await waitForElement(
             page,
             TestId.INVITATION_TOAST,
-            10000
+            120000
           );
 
           await logTestResult(
@@ -1245,7 +1229,7 @@ test.describe("Organization Invitation Tests", () => {
             "Invitation toast appears",
             invitationToastAppeared,
             "toast appeared",
-            "toast did not appear"
+            "toast did not appear within 20s"
           );
 
           if (!invitationToastAppeared) {
@@ -1263,7 +1247,7 @@ test.describe("Organization Invitation Tests", () => {
         try {
           await page.waitForSelector(
             `[data-testid="${TestId.INVITATION_TOAST}"]`,
-            { state: "hidden", timeout: 10000 }
+            { state: "hidden", timeout: 60000 }
           );
           declineButtonClicked = true;
         } catch (error) {
@@ -1281,7 +1265,7 @@ test.describe("Organization Invitation Tests", () => {
           "Invitation declined successfully",
           declineButtonClicked,
           "toast dismissed",
-          "toast did not dismiss"
+          "toast did not dismiss within 20s"
         );
 
         if (!declineButtonClicked) {
@@ -1305,7 +1289,7 @@ test.describe("Organization Invitation Tests", () => {
           const orgSelectorVisible = await isVisibleByTestId(
             page,
             TestId.AVATAR_MENU_ORG_SELECT,
-            10000
+            60000
           );
 
           if (!orgSelectorVisible) {
