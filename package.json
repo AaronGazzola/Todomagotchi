@@ -23,6 +23,9 @@
     "test:e2e:org": "playwright test e2e/organization.spec.ts --workers=2",
     "test:e2e:org:headed": "playwright test e2e/organization.spec.ts --headed --workers=2",
     "test:e2e:org:trace": "TEST_TRACE=true playwright test e2e/organization.spec.ts --workers=2",
+    "test:e2e:simple": "playwright test e2e/invitation-simple.spec.ts --workers=2",
+    "test:e2e:simple:headed": "playwright test e2e/invitation-simple.spec.ts --headed --workers=2",
+    "test:e2e:simple:trace": "TEST_TRACE=true playwright test e2e/invitation-simple.spec.ts --workers=2",
     "test:report": "tsx scripts/generate-test-report.ts",
     "test:report:cleanup": "tsx scripts/generate-test-report.ts --cleanup"
   },

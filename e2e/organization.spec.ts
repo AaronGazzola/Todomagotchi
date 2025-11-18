@@ -1,7 +1,6 @@
 import {
   TestResultLogger,
   clickByTestId,
-  countByTestId,
   fillByTestId,
   formatTestConditions,
   isVisibleByTestId,
@@ -375,7 +374,16 @@ test.describe("Organization Invitation Tests", () => {
   const inviteeName = "Invitee User";
   let inviterOrgId: string;
 
+  const SYNC_DIR = path.join(process.cwd(), ".test-sync");
+  const SSE_READY_FILE = path.join(SYNC_DIR, "sse-ready-invitee.txt");
+
   test.beforeAll(async () => {
+    if (!fs.existsSync(SYNC_DIR)) {
+      fs.mkdirSync(SYNC_DIR, { recursive: true });
+    }
+    if (fs.existsSync(SSE_READY_FILE)) {
+      fs.unlinkSync(SSE_READY_FILE);
+    }
     const inviter = await prisma.user.findUnique({
       where: { email: inviterEmail },
       include: { member: { include: { organization: true } } },
@@ -419,6 +427,13 @@ test.describe("Organization Invitation Tests", () => {
   });
 
   test.afterAll(async () => {
+    if (fs.existsSync(SSE_READY_FILE)) {
+      fs.unlinkSync(SSE_READY_FILE);
+    }
+    if (fs.existsSync(SYNC_DIR) && fs.readdirSync(SYNC_DIR).length === 0) {
+      fs.rmdirSync(SYNC_DIR);
+    }
+
     logger.finalizeUnreachedTests();
 
     const summary = logger.getSummary();
@@ -577,6 +592,27 @@ test.describe("Organization Invitation Tests", () => {
         inviterOrgId = inviter.member[0].organizationId;
       });
 
+      await stepLogger.step(
+        "Inviter: Wait for invitee SSE connection to be ready",
+        async () => {
+          const maxWaitTime = 30000;
+          const startTime = Date.now();
+
+          while (Date.now() - startTime < maxWaitTime) {
+            if (fs.existsSync(SSE_READY_FILE)) {
+              break;
+            }
+            await page.waitForTimeout(100);
+          }
+
+          if (!fs.existsSync(SSE_READY_FILE)) {
+            throw new Error(
+              "Invitee SSE connection not ready after 30s - sync file not created"
+            );
+          }
+        }
+      );
+
       await stepLogger.step("Inviter: Open avatar menu", async () => {
         await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
       });
@@ -586,28 +622,34 @@ test.describe("Organization Invitation Tests", () => {
       });
 
       let inviteDialogOpened = false;
-      await stepLogger.step("Inviter: Verify invite dialog opened", async () => {
-        inviteDialogOpened = await isVisibleByTestId(
-          page,
-          TestId.INVITE_DIALOG,
-          60000
-        );
+      await stepLogger.step(
+        "Inviter: Verify invite dialog opened",
+        async () => {
+          inviteDialogOpened = await isVisibleByTestId(
+            page,
+            TestId.INVITE_DIALOG,
+            60000
+          );
 
-        await logTestResult(
-          logger,
-          page,
-          "Invitation - Open invite dialog",
-          formatTestConditions({ userType: "inviter", action: "click invite" }),
-          "Invite dialog opens",
-          inviteDialogOpened,
-          "dialog opened",
-          "dialog not found"
-        );
+          await logTestResult(
+            logger,
+            page,
+            "Invitation - Open invite dialog",
+            formatTestConditions({
+              userType: "inviter",
+              action: "click invite",
+            }),
+            "Invite dialog opens",
+            inviteDialogOpened,
+            "dialog opened",
+            "dialog not found"
+          );
 
-        if (!inviteDialogOpened) {
-          throw new Error("Invite dialog did not open");
+          if (!inviteDialogOpened) {
+            throw new Error("Invite dialog did not open");
+          }
         }
-      });
+      );
 
       await stepLogger.step("Inviter: Fill invitation form", async () => {
         await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
@@ -646,7 +688,9 @@ test.describe("Organization Invitation Tests", () => {
           );
 
           if (!invitationSent) {
-            throw new Error("Invitation was not sent - success toast did not appear");
+            throw new Error(
+              "Invitation was not sent - success toast did not appear"
+            );
           }
         }
       );
@@ -708,10 +752,39 @@ test.describe("Organization Invitation Tests", () => {
         }
       });
 
+      await stepLogger.step(
+        "Invitee: Wait for user data to load and SSE to initialize",
+        async () => {
+          await page.waitForTimeout(2000);
+        }
+      );
+
+      await stepLogger.step(
+        "Invitee: Verify SSE connection is established",
+        async () => {
+          const connected = await page.waitForFunction(
+            () => {
+              const es = (window as any).__eventSource;
+              return es?.readyState === 1;
+            },
+            { timeout: 10000 }
+          );
+
+          if (!connected) {
+            throw new Error("SSE connection not established within 10s");
+          }
+        }
+      );
+
       let invitationToastAppeared = false;
       await stepLogger.step(
         "Invitee: Wait for invitation toast (real-time)",
         async () => {
+          if (!fs.existsSync(SYNC_DIR)) {
+            fs.mkdirSync(SYNC_DIR, { recursive: true });
+          }
+          fs.writeFileSync(SSE_READY_FILE, "ready");
+
           invitationToastAppeared = await waitForElement(
             page,
             TestId.INVITATION_TOAST,
@@ -729,7 +802,7 @@ test.describe("Organization Invitation Tests", () => {
             "Invitation toast appears without refresh",
             invitationToastAppeared,
             "toast appeared",
-            "toast did not appear within 20s"
+            "toast did not appear within 120s"
           );
 
           if (!invitationToastAppeared) {
@@ -828,7 +901,7 @@ test.describe("Organization Invitation Tests", () => {
       await stepLogger.step("Inviter: Wait for success toast", async () => {
         await page.waitForSelector('[data-testid="toast-success"]', {
           state: "visible",
-          timeout: 60000,
+          timeout: 20000,
         });
       });
     } else if (workerIndex === 1) {
@@ -890,7 +963,7 @@ test.describe("Organization Invitation Tests", () => {
       });
 
       await stepLogger.step("Invitee: Wait for invitation toast", async () => {
-        await waitForElement(page, TestId.INVITATION_TOAST, 120000);
+        await waitForElement(page, TestId.INVITATION_TOAST, 30000);
       });
 
       await stepLogger.step("Invitee: Click accept button", async () => {
@@ -974,7 +1047,9 @@ test.describe("Organization Invitation Tests", () => {
             "Organization appears in avatar menu org selector",
             orgInSelector,
             `organization found: ${inviterOrgName}`,
-            `organization not found in selector, options: ${orgSelectOptions.join(", ")}`
+            `organization not found in selector, options: ${orgSelectOptions.join(
+              ", "
+            )}`
           );
 
           if (!orgInSelector) {

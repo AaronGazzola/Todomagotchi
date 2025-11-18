@@ -13,10 +13,22 @@ import { PendingInvitation } from "./AvatarMenu.types";
 import { useInvitationSSE } from "./AvatarMenu.sse";
 import { TestId } from "@/test.types";
 import { useAppStore } from "@/app/layout.stores";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export function InvitationToasts() {
   const { user } = useAppStore();
-  useInvitationSSE(!!user?.email);
+  const sseEnabled = !!user?.email;
+
+  conditionalLog(
+    {
+      message: "InvitationToasts - SSE initialization",
+      sseEnabled,
+      hasUserEmail: !!user?.email,
+    },
+    { label: LOG_LABELS.REALTIME }
+  );
+
+  useInvitationSSE(sseEnabled);
 
   const { data: invitations } = useGetPendingInvitations();
   const { mutate: acceptInvitation } = useAcceptInvitation();
@@ -38,6 +50,7 @@ export function InvitationToasts() {
             className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-lg min-w-[320px] max-w-[420px]"
             data-testid={TestId.INVITATION_TOAST}
             data-org-name={invitation.organization.name}
+            data-organization-id={invitation.organizationId}
             data-role={invitation.role}
           >
             <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
