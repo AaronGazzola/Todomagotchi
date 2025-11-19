@@ -7,12 +7,15 @@ import { TodoList } from "@/app/(components)/TodoList";
 import { useAppStore } from "./layout.stores";
 import { usePageData } from "./page.hooks";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
+import { useTodosSSE } from "./page.sse";
 
 export default function Home() {
   const { isLoading } = usePageData();
 
   const { activeOrganizationId } = useAppStore();
   const hasActiveOrganization = !!activeOrganizationId;
+
+  useTodosSSE(hasActiveOrganization);
 
   conditionalLog(
     {

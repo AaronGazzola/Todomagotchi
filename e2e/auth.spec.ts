@@ -157,6 +157,30 @@ test.describe("Authentication Flow", () => {
       "Email address is displayed correctly"
     );
     logger.registerExpectedTest(
+      "Sign Up - Organization created in database",
+      formatTestConditions({
+        userType: "authenticated user",
+        action: "verify database",
+      }),
+      "User has organization membership"
+    );
+    logger.registerExpectedTest(
+      "Sign Up - Tamagotchi created in database",
+      formatTestConditions({
+        userType: "authenticated user",
+        action: "verify database",
+      }),
+      "Tamagotchi exists for organization"
+    );
+    logger.registerExpectedTest(
+      "Sign Up - Todo list initialized",
+      formatTestConditions({
+        userType: "authenticated user",
+        action: "verify database",
+      }),
+      "Todo list is empty (0 todos)"
+    );
+    logger.registerExpectedTest(
       "Sign Out - Redirect to sign in page",
       formatTestConditions({
         userType: "authenticated user",
@@ -309,6 +333,95 @@ test.describe("Authentication Flow", () => {
 
       if (!emailCorrect) {
         throw new Error("Email not displayed correctly in avatar menu");
+      }
+    });
+
+    let organizationCreated = false;
+    let tamagotchiCreated = false;
+    let todoListInitialized = false;
+
+    await stepLogger.step("Verify organization data in database", async () => {
+      const createdUser = await prisma.user.findUnique({
+        where: { email: testEmail },
+        include: { member: { include: { organization: true } } },
+      });
+
+      if (!createdUser || createdUser.member.length === 0) {
+        organizationCreated = false;
+      } else {
+        organizationCreated = true;
+
+        const organizationId = createdUser.member[0].organizationId;
+
+        const tamagotchi = await prisma.tamagotchi.findUnique({
+          where: { organizationId },
+        });
+
+        if (tamagotchi) {
+          tamagotchiCreated = true;
+        }
+
+        const todos = await prisma.todo.findMany({
+          where: { organizationId },
+        });
+
+        if (todos.length === 0) {
+          todoListInitialized = true;
+        }
+      }
+
+      await logTestResult(
+        logger,
+        page,
+        "Sign Up - Organization created in database",
+        formatTestConditions({
+          userType: "authenticated user",
+          action: "verify database",
+        }),
+        "User has organization membership",
+        organizationCreated,
+        "organization created",
+        "user or organization not found"
+      );
+
+      await logTestResult(
+        logger,
+        page,
+        "Sign Up - Tamagotchi created in database",
+        formatTestConditions({
+          userType: "authenticated user",
+          action: "verify database",
+        }),
+        "Tamagotchi exists for organization",
+        tamagotchiCreated,
+        "tamagotchi created",
+        "tamagotchi not found"
+      );
+
+      await logTestResult(
+        logger,
+        page,
+        "Sign Up - Todo list initialized",
+        formatTestConditions({
+          userType: "authenticated user",
+          action: "verify database",
+        }),
+        "Todo list is empty (0 todos)",
+        todoListInitialized,
+        "todo list is empty",
+        "todo list has unexpected items"
+      );
+
+      if (!organizationCreated) {
+        throw new Error("User or organization not found in database");
+      }
+
+      if (!tamagotchiCreated) {
+        throw new Error("Tamagotchi not found in database");
+      }
+
+      if (!todoListInitialized) {
+        throw new Error("Todo list not properly initialized");
       }
     });
 

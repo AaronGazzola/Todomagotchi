@@ -5,10 +5,7 @@ This document lists all test cases in the repository.
 ## Test Index
 
 1. [Authentication Flow](#1-authentication-flow) - `npm run test:e2e:auth`
-2. [Organization and Tamagotchi Creation](#2-organization-and-tamagotchi-creation) - `npm run test:e2e:org`
-3. [Real-time Invitation Flow](#3-real-time-invitation-flow) - `npm run test:e2e:org`
-4. [Accept Invitation and Verify Organization Access](#4-accept-invitation-and-verify-organization-access) - `npm run test:e2e:org`
-5. [Decline Invitation](#5-decline-invitation) - `npm run test:e2e:org`
+2. [Live Data Updates](#2-live-data-updates) - `npm run test:e2e:live-data`
 
 ## Authentication Tests
 
@@ -30,93 +27,61 @@ This document lists all test cases in the repository.
 - After sign in, user is redirected to home page (`/`)
 - Avatar menu is visible after successful sign in
 
-## Organization Tests
+## Live Data Tests
 
-### 2. Organization and Tamagotchi Creation
+### 2. Live Data Updates
 
-**File:** `e2e/organization.spec.ts`
+**File:** `e2e/live-data.spec.ts`
 
-**Command:** `npm run test:e2e:org`
+**Command:** `npm run test:e2e:live-data`
 
-**Workers:** 1 (single user test)
+**Description:** Tests real-time data synchronization between two users using Server-Sent Events (SSE). Validates that organization invitations and todo updates are propagated via live data streams.
 
-**Description:** Tests that a tamagotchi and empty todo list are automatically created when a user signs up and creates their organization.
-
-**Pass Conditions:**
-- User can successfully sign up
-- After sign up, user is redirected to home page (`/`)
-- Tamagotchi container is visible on home page
-- Todo empty state is visible (no todos exist)
-- Database contains a tamagotchi record for the user's organization
-- Database contains zero todo records for the user's organization
-- Tamagotchi has correct initial values (organizationId matches user's org)
-
-### 3. Real-time Invitation Flow
-
-**File:** `e2e/organization.spec.ts`
-
-**Command:** `npm run test:e2e:org`
-
-**Workers:** 2 (multi-user test with parallel execution)
-
-**Description:** Tests the real-time invitation flow where one user (inviter) sends an invitation to another user (invitee), and the invitee receives the invitation toast instantly without refreshing the page via Server-Sent Events (SSE).
+**Test Configuration:**
+- Mode: Parallel execution
+- Workers: 2 parallel tests (inviter and invitee)
+- Synchronization: File-based coordination via `.test-sync` directory
 
 **Pass Conditions:**
 
-**Inviter (Worker 0):**
-- Can successfully sign up and create an organization
-- Can open the avatar menu and click invite users button
-- Invite dialog opens successfully
-- Can enter invitee's email address
-- Can send invitation successfully (dialog closes)
-- Invitation is stored in database with correct organization ID
+#### Inviter Flow:
+- Inviter can create an account successfully
+- Account creation signals to invitee via sync file
+- Inviter waits for invitee account creation (max 60s)
+- Inviter waits for invitee SSE connection (max 30s)
+- Inviter can open invite dialog via avatar menu
+- Inviter can send invitation to invitee email
+- Success toast appears after sending invitation
+- Inviter waits for invitee to create a todo (max 120s)
+- Inviter receives live data update showing the todo created by invitee
+- Todo item becomes visible in inviter's UI via SSE update (max 30s)
+- Tamagotchi age increases from 0 to > 0 after todo creation
 
-**Invitee (Worker 1):**
-- Can successfully sign up and create their own organization
-- Receives invitation toast within 10 seconds without page refresh
-- Invitation toast contains correct organization name via `data-org-name` attribute
-- Invitation toast contains correct role via `data-role` attribute
+#### Invitee Flow:
+- Invitee waits for inviter account creation (max 60s)
+- Invitee can create an account successfully
+- Account creation signals to inviter via sync file
+- SSE connection establishes successfully (readyState === 1, max 10s)
+- SSE ready state signals to inviter via sync file
+- Invitation toast appears via live data stream (max 120s)
+- Toast contains valid organization name and ID
+- Invitee can accept the invitation
+- Toast disappears after acceptance
+- Organization appears in avatar menu organization selector (max 20s)
+- Invitee can select the organization from dropdown
+- Tamagotchi container updates to show correct organization ID (max 20s)
+- Tamagotchi data loads for selected organization (age and health attributes present, max 20s)
+- Invitee can create a todo in the shared organization
+- Todo item appears in invitee's UI (max 10s)
+- Todo creation signals to inviter via sync file
 
-### 4. Accept Invitation and Verify Organization Access
+**Synchronization Files:**
+- `.test-sync/sse-ready-simple.txt` - Invitee SSE connection ready
+- `.test-sync/inviter-created.txt` - Inviter account created
+- `.test-sync/invitee-created.txt` - Invitee account created
+- `.test-sync/todo-created.txt` - Invitee todo created
 
-**File:** `e2e/organization.spec.ts`
-
-**Command:** `npm run test:e2e:org`
-
-**Workers:** 2 (continuation of invitation flow test)
-
-**Description:** Tests that after accepting an invitation, the invitee can access the inviter's organization and see the correct organization context, including verifying that the tamagotchi and todo list belong to the correct organization via data attributes.
-
-**Pass Conditions:**
-- Invitee can click the accept button on the invitation toast
-- Invitation toast dismisses after accepting
-- Inviter's organization appears in the invitee's avatar menu organization selector
-- Invitee can switch to the inviter's organization
-- After switching, tamagotchi container has `data-organization-id` attribute matching inviter's organization ID
-- After switching, todo list has `data-organization-id` attribute matching inviter's organization ID
-- Database confirms invitee is now a member of inviter's organization
-- Invitee can see the inviter's organization content (tamagotchi and todos)
-
-### 5. Decline Invitation
-
-**File:** `e2e/organization.spec.ts`
-
-**Command:** `npm run test:e2e:org`
-
-**Workers:** 2 (multi-user test with parallel execution)
-
-**Description:** Tests that when an invitee declines an invitation, the organization does not become accessible to them.
-
-**Pass Conditions:**
-
-**Inviter (Worker 0):**
-- Can send a new invitation to the invitee
-- Invitation dialog closes after sending
-
-**Invitee (Worker 1):**
-- Receives invitation toast within 10 seconds
-- Can click the decline button on the invitation toast
-- Invitation toast dismisses after declining
-- After declining, the inviter's organization does NOT appear in the invitee's organization selector
-- Database confirms invitee is NOT a member of the declined organization
-- Invitation status is marked as "rejected" in database
+**Cleanup:**
+- All sync files deleted in beforeAll and afterAll hooks
+- All test users, sessions, organizations, members, invitations, todos, and tamagotchis deleted
+- Prisma connection closed after all tests

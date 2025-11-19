@@ -16,6 +16,7 @@ import {
   useUpdateTamagotchiSpecies,
 } from "./Tamagotchi.hooks";
 import { useTamagotchiStore } from "@/app/layout.stores";
+import { useTamagotchiSSE } from "./Tamagotchi.sse";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
@@ -99,6 +100,8 @@ export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
   const { mutate: updateAge } = useUpdateTamagotchiAge();
   useHungerTimer();
+
+  useTamagotchiSSE(!!tamagotchi);
 
   const [showSpriteGrid, setShowSpriteGrid] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -186,6 +189,7 @@ export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
       className="relative mx-auto w-full max-w-[400px]"
       data-testid={TestId.TAMAGOTCHI_CONTAINER}
       data-organization-id={tamagotchi.organizationId}
+      data-age={tamagotchi.age}
     >
       <div
         className="relative rounded-[50%] aspect-[4/5] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.3)] border-[6px]"

@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { PendingInvitation } from "./AvatarMenu.types";
+import { Todo } from "@prisma/client";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
-export const useInvitationSSE = (enabled: boolean) => {
+export const useTodosSSE = (enabled: boolean) => {
   const queryClient = useQueryClient();
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -20,34 +20,34 @@ export const useInvitationSSE = (enabled: boolean) => {
       if (!mountedRef.current) return;
 
       try {
-        const eventSource = new EventSource("/api/invitations/stream");
+        const eventSource = new EventSource("/api/todos/stream");
         eventSourceRef.current = eventSource;
 
         conditionalLog(
           {
             message: "SSE - EventSource created",
             readyState: eventSource.readyState,
-            url: "/api/invitations/stream",
+            url: "/api/todos/stream",
           },
           { label: LOG_LABELS.REALTIME }
         );
 
         if (typeof window !== "undefined") {
-          (window as unknown as { __eventSource: EventSource }).__eventSource = eventSource;
+          (window as unknown as { __todosEventSource: EventSource }).__todosEventSource = eventSource;
         }
 
         eventSource.onmessage = (event) => {
           try {
-            const invitations: PendingInvitation[] = JSON.parse(event.data);
+            const todos: Todo[] = JSON.parse(event.data);
             conditionalLog(
               {
                 message: "SSE - Message received",
-                invitationCount: invitations.length,
+                todoCount: todos.length,
                 listening: true,
               },
               { label: LOG_LABELS.REALTIME }
             );
-            queryClient.setQueryData(["pending-invitations"], invitations);
+            queryClient.setQueryData(["todos"], todos);
           } catch (error) {
             console.error("Failed to parse SSE data:", error);
           }
@@ -58,7 +58,7 @@ export const useInvitationSSE = (enabled: boolean) => {
           eventSourceRef.current = null;
 
           if (typeof window !== "undefined") {
-            (window as unknown as { __eventSource: EventSource | null }).__eventSource = null;
+            (window as unknown as { __todosEventSource: EventSource | null }).__todosEventSource = null;
           }
 
           if (mountedRef.current) {
@@ -103,7 +103,7 @@ export const useInvitationSSE = (enabled: boolean) => {
         eventSourceRef.current = null;
       }
       if (typeof window !== "undefined") {
-        (window as unknown as { __eventSource: EventSource | null }).__eventSource = null;
+        (window as unknown as { __todosEventSource: EventSource | null }).__todosEventSource = null;
       }
     };
   }, [enabled, queryClient]);
