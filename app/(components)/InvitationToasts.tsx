@@ -10,26 +10,9 @@ import {
   useGetPendingInvitations,
 } from "./AvatarMenu.hooks";
 import { PendingInvitation } from "./AvatarMenu.types";
-import { useInvitationSSE } from "./AvatarMenu.sse";
 import { TestId } from "@/test.types";
-import { useAppStore } from "@/app/layout.stores";
-import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export function InvitationToasts() {
-  const { user } = useAppStore();
-  const sseEnabled = !!user?.email;
-
-  conditionalLog(
-    {
-      message: "InvitationToasts - SSE initialization",
-      sseEnabled,
-      hasUserEmail: !!user?.email,
-    },
-    { label: LOG_LABELS.REALTIME }
-  );
-
-  useInvitationSSE(sseEnabled);
-
   const { data: invitations } = useGetPendingInvitations();
   const { mutate: acceptInvitation } = useAcceptInvitation();
   const { mutate: declineInvitation } = useDeclineInvitation();

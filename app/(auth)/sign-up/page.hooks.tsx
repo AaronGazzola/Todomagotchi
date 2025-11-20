@@ -9,7 +9,7 @@ import { SignUpData } from "./page.types";
 
 export const useSignUp = () => {
   const queryClient = useQueryClient();
-  const { setUser, setActiveOrganizationId } = useAppStore();
+  const { setUser } = useAppStore();
   const { setOrganizations } = useOrganizationStore();
   const { setTamagotchi } = useTamagotchiStore();
 
@@ -34,7 +34,6 @@ export const useSignUp = () => {
       if (allData) {
         setUser(allData.user);
         setOrganizations(allData.organizations);
-        setActiveOrganizationId(allData.activeOrganizationId);
         setTamagotchi(allData.activeTamagotchi);
         queryClient.setQueryData(["user-with-all-data"], allData);
       }

@@ -4,18 +4,15 @@ import { AvatarMenu } from "@/app/(components)/AvatarMenu";
 import { InvitationToasts } from "@/app/(components)/InvitationToasts";
 import { Tamagotchi } from "@/app/(components)/Tamagotchi";
 import { TodoList } from "@/app/(components)/TodoList";
-import { useAppStore } from "./layout.stores";
+import { useActiveOrganizationId } from "./layout.hooks";
 import { usePageData } from "./page.hooks";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
-import { useTodosSSE } from "./page.sse";
 
 export default function Home() {
   const { isLoading } = usePageData();
 
-  const { activeOrganizationId } = useAppStore();
+  const activeOrganizationId = useActiveOrganizationId();
   const hasActiveOrganization = !!activeOrganizationId;
-
-  useTodosSSE(hasActiveOrganization);
 
   conditionalLog(
     {

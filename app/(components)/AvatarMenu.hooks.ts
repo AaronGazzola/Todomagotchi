@@ -16,6 +16,7 @@ import {
 } from "./AvatarMenu.actions";
 import { InvitationResult, SendInvitationsParams } from "./AvatarMenu.types";
 import { useOrganizationStore, useAppStore, useTamagotchiStore } from "@/app/layout.stores";
+import { useActiveOrganizationId } from "@/app/layout.hooks";
 import { OrganizationWithTamagotchi } from "@/app/layout.types";
 import { getUserWithAllDataAction } from "@/app/layout.actions";
 import { getTodosAction } from "@/app/page.actions";
@@ -25,17 +26,13 @@ import { useTodoStore } from "@/app/page.stores";
 
 export const useSetActiveOrganization = () => {
   const queryClient = useQueryClient();
-  const { setActiveOrganizationId } = useAppStore();
 
   return useMutation({
     mutationFn: async (organizationId: string) => {
-      const { error } = await setActiveOrganizationAction(organizationId);
-      if (error) throw new Error(error);
       await organization.setActive({ organizationId });
       return organizationId;
     },
-    onSuccess: (organizationId) => {
-      setActiveOrganizationId(organizationId);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
@@ -49,7 +46,7 @@ export const useSetActiveOrganization = () => {
 
 export const useCreateOrganization = () => {
   const queryClient = useQueryClient();
-  const { setUser, setActiveOrganizationId } = useAppStore();
+  const { setUser } = useAppStore();
   const { setOrganizations } = useOrganizationStore();
   const { setTamagotchi } = useTamagotchiStore();
   const { setTodos } = useTodoStore();
@@ -75,7 +72,6 @@ export const useCreateOrganization = () => {
         if (allData) {
           setUser(allData.user);
           setOrganizations(allData.organizations);
-          setActiveOrganizationId(allData.activeOrganizationId);
           setTamagotchi(allData.activeTamagotchi);
           queryClient.setQueryData(["user-with-all-data"], allData);
         }
@@ -114,7 +110,7 @@ export const useGetOrganizationColor = (organizationId: string | null) => {
 export const useUpdateTamagotchiColor = () => {
   const queryClient = useQueryClient();
   const { tamagotchi, setTamagotchi } = useTamagotchiStore();
-  const { activeOrganizationId } = useAppStore();
+  const activeOrganizationId = useActiveOrganizationId();
   const { organizations, setOrganizations } = useOrganizationStore();
 
   return useMutation({
@@ -208,7 +204,7 @@ export const useGetPendingInvitations = () => {
       if (error) throw new Error(error);
       return data || [];
     },
-    staleTime: Infinity,
+    refetchInterval: 5000,
   });
 };
 

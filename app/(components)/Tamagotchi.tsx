@@ -16,13 +16,13 @@ import {
   useUpdateTamagotchiSpecies,
 } from "./Tamagotchi.hooks";
 import { useTamagotchiStore } from "@/app/layout.stores";
-import { useTamagotchiSSE } from "./Tamagotchi.sse";
 import { SPRITE_HAMBONE } from "./Tamagotchi.sprites";
 import {
   getSpriteForTamagotchi,
   type TamagotchiSpecies,
 } from "./Tamagotchi.utils";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
+import { useActiveOrganizationId } from "@/app/layout.hooks";
 
 function SpriteRenderer({
   grid,
@@ -100,8 +100,6 @@ export function Tamagotchi({ isLoading = false }: TamagotchiProps = {}) {
   const { mutate: updateSpecies } = useUpdateTamagotchiSpecies();
   const { mutate: updateAge } = useUpdateTamagotchiAge();
   useHungerTimer();
-
-  useTamagotchiSSE(!!tamagotchi);
 
   const [showSpriteGrid, setShowSpriteGrid] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });

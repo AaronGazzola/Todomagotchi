@@ -3,13 +3,11 @@ import { AppState, OrganizationState, TamagotchiState } from "./layout.types";
 
 const appInitialState = {
   user: null,
-  activeOrganizationId: null,
 };
 
 export const useAppStore = create<AppState>()((set) => ({
   ...appInitialState,
   setUser: (user) => set({ user }),
-  setActiveOrganizationId: (id) => set({ activeOrganizationId: id }),
   reset: () => set(appInitialState),
 }));
 

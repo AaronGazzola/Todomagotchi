@@ -2,7 +2,6 @@
 
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
-import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Todo } from "@prisma/client";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
@@ -15,23 +14,16 @@ export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
     );
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userRecord = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-    const activeOrganizationId = userRecord?.activeOrganizationId;
-    conditionalLog(
-      { message: "getTodosAction - activeOrganizationId", activeOrganizationId },
-      { label: LOG_LABELS.TODOS_ACTIONS }
-    );
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
     }
+
+    conditionalLog(
+      { message: "getTodosAction - activeOrganizationId", activeOrganizationId },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
 
     const todos = await db.todo.findMany({
       where: { organizationId: activeOrganizationId },
@@ -62,15 +54,7 @@ export const createTodoAction = async (
     );
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userRecord = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-    const activeOrganizationId = userRecord?.activeOrganizationId;
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -89,9 +73,6 @@ export const createTodoAction = async (
     );
 
     await feedTamagotchiHelper(db, activeOrganizationId);
-
-    sseBroadcaster.notifyTodos(activeOrganizationId);
-    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: todo });
   } catch (error) {
@@ -113,15 +94,7 @@ export const toggleTodoAction = async (
     );
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userRecord = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-    const activeOrganizationId = userRecord?.activeOrganizationId;
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -157,9 +130,6 @@ export const toggleTodoAction = async (
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
 
-    sseBroadcaster.notifyTodos(activeOrganizationId);
-    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
-
     return getActionResponse({ data: updatedTodo });
   } catch (error) {
     conditionalLog(
@@ -180,15 +150,7 @@ export const deleteTodoAction = async (
     );
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const userRecord = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-    const activeOrganizationId = userRecord?.activeOrganizationId;
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -210,8 +172,6 @@ export const deleteTodoAction = async (
       { message: "deleteTodoAction - deleted" },
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
-
-    sseBroadcaster.notifyTodos(activeOrganizationId);
 
     return getActionResponse();
   } catch (error) {

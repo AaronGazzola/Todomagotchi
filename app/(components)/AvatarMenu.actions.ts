@@ -3,7 +3,6 @@
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
-import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { headers } from "next/headers";
 import {
   InvitationResult,
@@ -57,12 +56,8 @@ export const setActiveOrganizationAction = async (
   try {
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    await db.user.update({
-      where: { id: session.user.id },
+    await db.session.update({
+      where: { id: session.session.id },
       data: { activeOrganizationId: organizationId },
     });
 
@@ -98,10 +93,6 @@ export const getOrganizationTamagotchiColorAction = async (
   try {
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
     const tamagotchi = await db.tamagotchi.findUnique({
       where: { organizationId },
       select: { color: true },
@@ -119,16 +110,7 @@ export const updateTamagotchiColorAction = async (
   try {
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-
-    const activeOrganizationId = user?.activeOrganizationId;
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -138,8 +120,6 @@ export const updateTamagotchiColorAction = async (
       where: { organizationId: activeOrganizationId },
       data: { color },
     });
-
-    sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse();
   } catch (error) {
@@ -153,16 +133,7 @@ export const resetOrganizationDataAction = async (): Promise<
   try {
     const { db, session } = await getAuthenticatedClient();
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { activeOrganizationId: true },
-    });
-
-    const activeOrganizationId = user?.activeOrganizationId;
+    const activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -299,8 +270,6 @@ export const sendInvitationsAction = async (
           email: trimmedEmail,
           invitationId: invitation.id,
         });
-
-        sseBroadcaster.notifyInvitation(trimmedEmail);
       } catch (error) {
         results.push({
           success: false,

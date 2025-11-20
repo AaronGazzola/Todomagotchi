@@ -38,7 +38,7 @@ export const useGetTodos = () => {
       if (error) throw new Error(error);
       return data || [];
     },
-    staleTime: Infinity,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {

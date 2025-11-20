@@ -2,7 +2,7 @@
 
 import { showErrorToast, showSuccessToast } from "@/app/(components)/Toast";
 import { configuration, isPrivatePath } from "@/configuration";
-import { signOut } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuthCookiesAction, getUserWithAllDataAction } from "./layout.actions";
@@ -10,7 +10,7 @@ import { useAppStore, useOrganizationStore, useTamagotchiStore } from "./layout.
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const useGetUser = () => {
-  const { setUser, setActiveOrganizationId, reset: resetApp } = useAppStore();
+  const { setUser, reset: resetApp } = useAppStore();
   const { setOrganizations, reset: resetOrg } = useOrganizationStore();
   const { setTamagotchi, reset: resetTama } = useTamagotchiStore();
   const pathname = usePathname();
@@ -50,7 +50,6 @@ export const useGetUser = () => {
       if (data) {
         setUser(data.user);
         setOrganizations(data.organizations);
-        setActiveOrganizationId(data.activeOrganizationId);
         setTamagotchi(data.activeTamagotchi);
         conditionalLog(
           {
@@ -101,4 +100,15 @@ export const useSignOut = () => {
       router.push(configuration.paths.signIn);
     },
   });
+};
+
+export const useActiveOrganizationId = () => {
+  const { data: session } = useSession();
+  return session?.session?.activeOrganizationId || null;
+};
+
+export const useActiveOrganization = () => {
+  const { organizations } = useOrganizationStore();
+  const activeOrganizationId = useActiveOrganizationId();
+  return organizations.find(org => org.id === activeOrganizationId) || null;
 };

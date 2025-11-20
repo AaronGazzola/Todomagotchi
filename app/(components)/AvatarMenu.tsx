@@ -20,7 +20,7 @@ import { Mail, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { HexColorPicker } from "react-colorful";
-import { useSignOut } from "../layout.hooks";
+import { useSignOut, useActiveOrganizationId } from "../layout.hooks";
 import { useAppStore, useOrganizationStore } from "../layout.stores";
 import {
   useCreateOrganization,
@@ -33,7 +33,8 @@ import {
 
 export function AvatarMenu() {
   const router = useRouter();
-  const { user, activeOrganizationId } = useAppStore();
+  const { user } = useAppStore();
+  const activeOrganizationId = useActiveOrganizationId();
   const { organizations } = useOrganizationStore();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showCreateOrgDialog, setShowCreateOrgDialog] = useState(false);

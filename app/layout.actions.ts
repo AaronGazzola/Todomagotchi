@@ -11,7 +11,7 @@ import { OrganizationWithTamagotchi } from "./layout.types";
 export interface UserWithAllData {
   user: user;
   organizations: OrganizationWithTamagotchi[];
-  activeOrganizationId: string | null;
+  activeOrganizationId: string | null | undefined;
   activeTamagotchi: Tamagotchi | null;
 }
 
@@ -57,13 +57,13 @@ export const getUserWithAllDataAction = async (): Promise<
         tamagotchi: tamagotchis.find((t) => t.organizationId === org.id) || null,
       }));
 
-    let activeOrganizationId = prismaUser.activeOrganizationId;
+    let activeOrganizationId = session.session.activeOrganizationId;
 
     if (!activeOrganizationId && organizations.length > 0) {
       activeOrganizationId = organizations[0].id;
-      await prisma.user.update({
-        where: { id: prismaUser.id },
-        data: { activeOrganizationId },
+      await auth.api.setActiveOrganization({
+        headers: await headers(),
+        body: { organizationId: activeOrganizationId },
       });
     }
 

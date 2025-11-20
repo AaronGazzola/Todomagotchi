@@ -6,7 +6,7 @@ import {
   useToggleTodo,
 } from "@/app/page.hooks";
 import { useTodoStore } from "@/app/page.stores";
-import { useAppStore } from "@/app/layout.stores";
+import { useActiveOrganizationId } from "@/app/layout.hooks";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ interface TodoListProps {
 
 export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}) {
   const [inputValue, setInputValue] = useState("");
-  const activeOrganizationId = useAppStore((state) => state.activeOrganizationId);
+  const activeOrganizationId = useActiveOrganizationId();
 
   const todos = useTodoStore((state) => state.todos) || [];
 

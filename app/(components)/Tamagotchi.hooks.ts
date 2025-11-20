@@ -1,21 +1,22 @@
 "use client";
 
+import { useActiveOrganizationId } from "@/app/layout.hooks";
+import { useTamagotchiStore } from "@/app/layout.stores";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import {
   feedTamagotchiAction,
   getTamagotchiAction,
+  updateTamagotchiAgeAction,
   updateTamagotchiHungerAction,
   updateTamagotchiSpeciesAction,
-  updateTamagotchiAgeAction,
 } from "./Tamagotchi.actions";
 import { showErrorToast, showSuccessToast } from "./Toast";
-import { useTamagotchiStore, useAppStore } from "@/app/layout.stores";
-import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const useGetTamagotchi = () => {
   const { setTamagotchi } = useTamagotchiStore();
-  const { activeOrganizationId } = useAppStore();
+  const activeOrganizationId = useActiveOrganizationId();
 
   const query = useQuery({
     queryKey: ["tamagotchi"],
@@ -40,8 +41,7 @@ export const useGetTamagotchi = () => {
       if (error) throw new Error(error);
       return data;
     },
-    enabled: !!activeOrganizationId,
-    staleTime: Infinity,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
@@ -219,7 +219,10 @@ export const useUpdateTamagotchiSpecies = () => {
     },
     onError: (error: Error) => {
       conditionalLog(
-        { message: "useUpdateTamagotchiSpecies - onError", error: error.message },
+        {
+          message: "useUpdateTamagotchiSpecies - onError",
+          error: error.message,
+        },
         { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
       );
       showErrorToast(

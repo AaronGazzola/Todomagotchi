@@ -2,11 +2,10 @@ import { User } from "better-auth";
 import { cookies, headers } from "next/headers";
 import { auth, Session } from "./auth";
 import { createRLSClient } from "./prisma-rls";
-import { prisma } from "./prisma";
 
 export async function getAuthenticatedClient(user?: User): Promise<{
   db: ReturnType<typeof createRLSClient>;
-  session: Session | null;
+  session: Session;
 }> {
   const headersList = await headers();
 
@@ -16,16 +15,11 @@ export async function getAuthenticatedClient(user?: User): Promise<{
 
   const userId = user?.id || session?.user.id;
 
-  if (!userId) {
+  if (!userId || !session) {
     throw new Error("Unauthorized");
   }
 
-  const userRecord = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { activeOrganizationId: true },
-  });
-
-  const activeOrganizationId = userRecord?.activeOrganizationId;
+  const activeOrganizationId = session.session.activeOrganizationId;
 
   if (!activeOrganizationId) {
     throw new Error("No active organization");

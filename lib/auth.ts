@@ -13,6 +13,26 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const member = await prisma.member.findFirst({
+            where: { userId: session.userId },
+            select: { organizationId: true },
+            orderBy: { createdAt: "asc" },
+          });
+
+          return {
+            data: {
+              ...session,
+              activeOrganizationId: member?.organizationId || null,
+            },
+          };
+        },
+      },
+    },
+  },
   plugins: [
     admin(),
     organization({

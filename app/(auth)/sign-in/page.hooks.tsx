@@ -16,7 +16,7 @@ import { useTodoStore } from "@/app/page.stores";
 export const useSignIn = () => {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { setUser, setActiveOrganizationId } = useAppStore();
+  const { setUser } = useAppStore();
   const { setOrganizations } = useOrganizationStore();
   const { setTamagotchi } = useTamagotchiStore();
   const { setTodos } = useTodoStore();
@@ -51,7 +51,6 @@ export const useSignIn = () => {
       if (allData) {
         setUser(allData.user);
         setOrganizations(allData.organizations);
-        setActiveOrganizationId(allData.activeOrganizationId);
         setTamagotchi(allData.activeTamagotchi);
         queryClient.setQueryData(["user-with-all-data"], allData);
       }
