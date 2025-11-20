@@ -5,16 +5,37 @@ import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { createRLSClient } from "@/lib/prisma-rls";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Tamagotchi } from "@prisma/client";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const getTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi | null>
 > => {
   try {
+    conditionalLog(
+      { message: "getTamagotchiAction - start" },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
+    conditionalLog(
+      { message: "getTamagotchiAction - activeOrganizationId", activeOrganizationId },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
 
     if (!activeOrganizationId) {
+      conditionalLog(
+        { message: "getTamagotchiAction - no active organization" },
+        { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+      );
       return getActionResponse({ data: null });
     }
 
@@ -22,8 +43,16 @@ export const getTamagotchiAction = async (): Promise<
       where: { organizationId: activeOrganizationId },
     });
 
+    conditionalLog(
+      { message: "getTamagotchiAction - result", hasTamagotchi: !!tamagotchi, tamagotchi },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ data: tamagotchi });
   } catch (error) {
+    conditionalLog(
+      { message: "getTamagotchiAction - error", error },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -120,9 +149,25 @@ export const feedTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
   try {
+    conditionalLog(
+      { message: "feedTamagotchiAction - start" },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
+    conditionalLog(
+      { message: "feedTamagotchiAction - activeOrganizationId", activeOrganizationId },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -133,10 +178,19 @@ export const feedTamagotchiAction = async (): Promise<
       activeOrganizationId
     );
 
+    conditionalLog(
+      { message: "feedTamagotchiAction - result", updatedTamagotchi },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
+
     sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
+    conditionalLog(
+      { message: "feedTamagotchiAction - error", error },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -145,11 +199,27 @@ export const updateTamagotchiHungerAction = async (): Promise<
   ActionResponse<Tamagotchi>
 > => {
   try {
+    conditionalLog(
+      { message: "updateTamagotchiHungerAction - start" },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
+      conditionalLog(
+        { message: "updateTamagotchiHungerAction - no active organization" },
+        { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+      );
       return getActionResponse({ data: null as unknown as Tamagotchi });
     }
 
@@ -158,6 +228,10 @@ export const updateTamagotchiHungerAction = async (): Promise<
     });
 
     if (!tamagotchi) {
+      conditionalLog(
+        { message: "updateTamagotchiHungerAction - tamagotchi not found" },
+        { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+      );
       return getActionResponse({ data: null as unknown as Tamagotchi });
     }
 
@@ -167,7 +241,16 @@ export const updateTamagotchiHungerAction = async (): Promise<
       (now.getTime() - lastChecked.getTime()) / (1000 * 30)
     );
 
+    conditionalLog(
+      { message: "updateTamagotchiHungerAction - time check", minutesPassed },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
+
     if (minutesPassed < 1) {
+      conditionalLog(
+        { message: "updateTamagotchiHungerAction - no update needed" },
+        { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+      );
       return getActionResponse({ data: tamagotchi });
     }
 
@@ -190,10 +273,19 @@ export const updateTamagotchiHungerAction = async (): Promise<
       },
     });
 
+    conditionalLog(
+      { message: "updateTamagotchiHungerAction - result", updatedTamagotchi },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
+
     sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
+    conditionalLog(
+      { message: "updateTamagotchiHungerAction - error", error },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -202,9 +294,21 @@ export const updateTamagotchiSpeciesAction = async (
   species: string
 ): Promise<ActionResponse<Tamagotchi>> => {
   try {
+    conditionalLog(
+      { message: "updateTamagotchiSpeciesAction - start", species },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -215,10 +319,19 @@ export const updateTamagotchiSpeciesAction = async (
       data: { species },
     });
 
+    conditionalLog(
+      { message: "updateTamagotchiSpeciesAction - result", updatedTamagotchi },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
+
     sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
+    conditionalLog(
+      { message: "updateTamagotchiSpeciesAction - error", error },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -227,9 +340,21 @@ export const updateTamagotchiAgeAction = async (
   age: number
 ): Promise<ActionResponse<Tamagotchi>> => {
   try {
+    conditionalLog(
+      { message: "updateTamagotchiAgeAction - start", age },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -240,10 +365,19 @@ export const updateTamagotchiAgeAction = async (
       data: { age },
     });
 
+    conditionalLog(
+      { message: "updateTamagotchiAgeAction - result", updatedTamagotchi },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
+
     sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTamagotchi });
   } catch (error) {
+    conditionalLog(
+      { message: "updateTamagotchiAgeAction - error", error },
+      { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };

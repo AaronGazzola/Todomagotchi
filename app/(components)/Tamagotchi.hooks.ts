@@ -77,11 +77,28 @@ export const useFeedTamagotchi = () => {
 
   return useMutation({
     mutationFn: async () => {
+      conditionalLog(
+        { message: "feedTamagotchiAction - start" },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       const { data, error } = await feedTamagotchiAction();
+      conditionalLog(
+        {
+          message: "feedTamagotchiAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: (data) => {
+      conditionalLog(
+        { message: "useFeedTamagotchi - onSuccess", data },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (data) {
         setTamagotchi(data);
       }
@@ -101,6 +118,10 @@ export const useFeedTamagotchi = () => {
       }
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useFeedTamagotchi - onError", error: error.message },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       showErrorToast(
         error.message || "Failed to feed Tamagotchi",
         "Feed Failed"
@@ -115,12 +136,28 @@ export const useUpdateTamagotchiHunger = () => {
 
   return useMutation({
     mutationFn: async () => {
-      console.log("timer mutationa");
+      conditionalLog(
+        { message: "updateTamagotchiHungerAction - start" },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       const { data, error } = await updateTamagotchiHungerAction();
+      conditionalLog(
+        {
+          message: "updateTamagotchiHungerAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: (data) => {
+      conditionalLog(
+        { message: "useUpdateTamagotchiHunger - onSuccess", data },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (data) {
         setTamagotchi(data);
       }
@@ -152,11 +189,28 @@ export const useUpdateTamagotchiSpecies = () => {
 
   return useMutation({
     mutationFn: async (species: string) => {
+      conditionalLog(
+        { message: "updateTamagotchiSpeciesAction - start", species },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       const { data, error } = await updateTamagotchiSpeciesAction(species);
+      conditionalLog(
+        {
+          message: "updateTamagotchiSpeciesAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: (data) => {
+      conditionalLog(
+        { message: "useUpdateTamagotchiSpecies - onSuccess", data },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (data) {
         setTamagotchi(data);
       }
@@ -164,6 +218,10 @@ export const useUpdateTamagotchiSpecies = () => {
       showSuccessToast("Species updated!");
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useUpdateTamagotchiSpecies - onError", error: error.message },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       showErrorToast(
         error.message || "Failed to update species",
         "Update Failed"
@@ -178,11 +236,28 @@ export const useUpdateTamagotchiAge = () => {
 
   return useMutation({
     mutationFn: async (age: number) => {
+      conditionalLog(
+        { message: "updateTamagotchiAgeAction - start", age },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       const { data, error } = await updateTamagotchiAgeAction(age);
+      conditionalLog(
+        {
+          message: "updateTamagotchiAgeAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: (data) => {
+      conditionalLog(
+        { message: "useUpdateTamagotchiAge - onSuccess", data },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       if (data) {
         setTamagotchi(data);
       }
@@ -190,6 +265,10 @@ export const useUpdateTamagotchiAge = () => {
       showSuccessToast("Age updated!");
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useUpdateTamagotchiAge - onError", error: error.message },
+        { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
+      );
       showErrorToast(error.message || "Failed to update age", "Update Failed");
     },
   });

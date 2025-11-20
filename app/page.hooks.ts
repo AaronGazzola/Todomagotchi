@@ -74,16 +74,37 @@ export const useCreateTodo = () => {
 
   return useMutation({
     mutationFn: async (text: string) => {
+      conditionalLog(
+        { message: "createTodoAction - start", text },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       const { data, error } = await createTodoAction(text);
+      conditionalLog(
+        {
+          message: "createTodoAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: () => {
+      conditionalLog(
+        { message: "useCreateTodo - onSuccess" },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       showSuccessToast("Todo created");
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useCreateTodo - onError", error: error.message },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       showErrorToast(error.message || "Failed to create todo", "Create Failed");
     },
   });
@@ -94,15 +115,36 @@ export const useToggleTodo = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      conditionalLog(
+        { message: "toggleTodoAction - start", id },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       const { data, error } = await toggleTodoAction(id);
+      conditionalLog(
+        {
+          message: "toggleTodoAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       if (error) throw new Error(error);
       return data;
     },
     onSuccess: () => {
+      conditionalLog(
+        { message: "useToggleTodo - onSuccess" },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useToggleTodo - onError", error: error.message },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       showErrorToast(error.message || "Failed to toggle todo", "Toggle Failed");
     },
   });
@@ -113,14 +155,33 @@ export const useDeleteTodo = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      conditionalLog(
+        { message: "deleteTodoAction - start", id },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       const { error } = await deleteTodoAction(id);
+      conditionalLog(
+        {
+          message: "deleteTodoAction - result",
+          error: error || null,
+        },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       if (error) throw new Error(error);
     },
     onSuccess: () => {
+      conditionalLog(
+        { message: "useDeleteTodo - onSuccess" },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       showSuccessToast("Todo deleted");
     },
     onError: (error: Error) => {
+      conditionalLog(
+        { message: "useDeleteTodo - onError", error: error.message },
+        { label: LOG_LABELS.TODOS_HOOKS }
+      );
       showErrorToast(error.message || "Failed to delete todo", "Delete Failed");
     },
   });

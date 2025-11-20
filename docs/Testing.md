@@ -34,7 +34,7 @@ Use `data-state` attributes to expose element states for testing (e.g., `data-st
 
 ### Rule 4: Always Prefer Timeouts Over Hard-Coded Waits
 
-Always use explicit timeout parameters in Playwright operations rather than hard-coded waits. Use appropriate timeout values based on the operation being performed.
+Always use explicit timeout parameters in Playwright operations rather than hard-coded waits. Use 20000ms (20 seconds) as the standard timeout value for all Playwright operations.
 
 ### Rule 5: Isolate Test Data
 
@@ -241,7 +241,7 @@ Test Execution Flow:
 **Example comparison:**
 
 ```typescript
-await expect(page.getByTestId(TestId.BUTTON)).toBeVisible();
+await expect(page.getByTestId(TestId.BUTTON)).toBeVisible({ timeout: 20000 });
 
 const buttonVisible = await isVisibleByTestId(page, TestId.BUTTON);
 await logTestResult(
@@ -457,7 +457,7 @@ let createAccountVisible = false;
 try {
   await expect(
     await getElementByTestId(page, TestId.AUTH_CREATE_ACCOUNT_HEADING)
-  ).toBeVisible({ timeout: 10000 });
+  ).toBeVisible({ timeout: 20000 });
   createAccountVisible = await isVisibleByTestId(
     page,
     TestId.AUTH_CREATE_ACCOUNT_HEADING
@@ -1274,8 +1274,8 @@ Required in `.env` and `.env.local`:
 - **Screenshots:** Only on failure
 - **Traces:** On first retry (standard mode) or all tests (trace mode)
 - **Test Timeout:** 120000ms (2 minutes) - Global timeout for individual test execution
-- **Action Timeout:** 10000ms - Timeout for individual Playwright actions
-- **Navigation Timeout:** 10000ms - Timeout for page navigation operations
+- **Action Timeout:** 20000ms - Timeout for individual Playwright actions
+- **Navigation Timeout:** 20000ms - Timeout for page navigation operations
 
 **Important:** The global test timeout (120s) must be set in `playwright.config.ts` to prevent tests from timing out before longer operations (like authentication flows) can complete. Playwright's default is 30s, which is insufficient for complex multi-step tests.
 

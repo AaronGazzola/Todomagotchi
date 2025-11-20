@@ -11,6 +11,7 @@ import {
   getUserOrganizationsAction,
   resetOrganizationDataAction,
   sendInvitationsAction,
+  setActiveOrganizationAction,
   updateTamagotchiColorAction,
 } from "./AvatarMenu.actions";
 import { InvitationResult, SendInvitationsParams } from "./AvatarMenu.types";
@@ -24,13 +25,17 @@ import { useTodoStore } from "@/app/page.stores";
 
 export const useSetActiveOrganization = () => {
   const queryClient = useQueryClient();
+  const { setActiveOrganizationId } = useAppStore();
 
   return useMutation({
     mutationFn: async (organizationId: string) => {
+      const { error } = await setActiveOrganizationAction(organizationId);
+      if (error) throw new Error(error);
       await organization.setActive({ organizationId });
       return organizationId;
     },
-    onSuccess: () => {
+    onSuccess: (organizationId) => {
+      setActiveOrganizationId(organizationId);
       queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });

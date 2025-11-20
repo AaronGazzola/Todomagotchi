@@ -5,12 +5,29 @@ import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { sseBroadcaster } from "@/lib/sse-broadcaster";
 import { Todo } from "@prisma/client";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
+import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
 export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
   try {
+    conditionalLog(
+      { message: "getTodosAction - start" },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
+    conditionalLog(
+      { message: "getTodosAction - activeOrganizationId", activeOrganizationId },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -21,8 +38,16 @@ export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
       orderBy: { createdAt: "desc" },
     });
 
+    conditionalLog(
+      { message: "getTodosAction - result", todosCount: todos.length, todos },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     return getActionResponse({ data: todos });
   } catch (error) {
+    conditionalLog(
+      { message: "getTodosAction - error", error },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -31,9 +56,21 @@ export const createTodoAction = async (
   text: string
 ): Promise<ActionResponse<Todo>> => {
   try {
+    conditionalLog(
+      { message: "createTodoAction - start", text },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -46,6 +83,11 @@ export const createTodoAction = async (
       },
     });
 
+    conditionalLog(
+      { message: "createTodoAction - todo created", todo },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
+
     await feedTamagotchiHelper(db, activeOrganizationId);
 
     sseBroadcaster.notifyTodos(activeOrganizationId);
@@ -53,6 +95,10 @@ export const createTodoAction = async (
 
     return getActionResponse({ data: todo });
   } catch (error) {
+    conditionalLog(
+      { message: "createTodoAction - error", error },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -61,9 +107,21 @@ export const toggleTodoAction = async (
   id: string
 ): Promise<ActionResponse<Todo>> => {
   try {
+    conditionalLog(
+      { message: "toggleTodoAction - start", id },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -80,6 +138,10 @@ export const toggleTodoAction = async (
     }
 
     const isBeingCompleted = !todo.completed;
+    conditionalLog(
+      { message: "toggleTodoAction - toggling", isBeingCompleted },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
 
     const updatedTodo = await db.todo.update({
       where: { id },
@@ -90,11 +152,20 @@ export const toggleTodoAction = async (
       await feedTamagotchiHelper(db, activeOrganizationId);
     }
 
+    conditionalLog(
+      { message: "toggleTodoAction - result", updatedTodo },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
+
     sseBroadcaster.notifyTodos(activeOrganizationId);
     sseBroadcaster.notifyTamagotchi(activeOrganizationId);
 
     return getActionResponse({ data: updatedTodo });
   } catch (error) {
+    conditionalLog(
+      { message: "toggleTodoAction - error", error },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };
@@ -103,9 +174,21 @@ export const deleteTodoAction = async (
   id: string
 ): Promise<ActionResponse<void>> => {
   try {
+    conditionalLog(
+      { message: "deleteTodoAction - start", id },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     const { db, session } = await getAuthenticatedClient();
 
-    const activeOrganizationId = session?.session?.activeOrganizationId;
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { activeOrganizationId: true },
+    });
+    const activeOrganizationId = userRecord?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       throw new Error("No active organization");
@@ -123,10 +206,19 @@ export const deleteTodoAction = async (
 
     await db.todo.delete({ where: { id } });
 
+    conditionalLog(
+      { message: "deleteTodoAction - deleted" },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
+
     sseBroadcaster.notifyTodos(activeOrganizationId);
 
     return getActionResponse();
   } catch (error) {
+    conditionalLog(
+      { message: "deleteTodoAction - error", error },
+      { label: LOG_LABELS.TODOS_ACTIONS }
+    );
     return getActionResponse({ error });
   }
 };

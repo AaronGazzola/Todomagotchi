@@ -16,7 +16,14 @@ export async function GET(request: NextRequest) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const activeOrganizationId = session.session?.activeOrganizationId;
+    const userId = session.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeOrganizationId: true },
+    });
+
+    const activeOrganizationId = user?.activeOrganizationId;
 
     if (!activeOrganizationId) {
       return new Response("No active organization", { status: 400 });

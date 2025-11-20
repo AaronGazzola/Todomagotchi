@@ -17,6 +17,10 @@ export enum LOG_LABELS {
   HOME_PAGE = "home-page",
   TODOS = "todos",
   TAMAGOTCHI = "tamagotchi",
+  TODOS_HOOKS = "todos-hooks",
+  TODOS_ACTIONS = "todos-actions",
+  TAMAGOTCHI_HOOKS = "tamagotchi-hooks",
+  TAMAGOTCHI_ACTIONS = "tamagotchi-actions",
 }
 
 interface ConditionalLogOptions {

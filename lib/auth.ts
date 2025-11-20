@@ -44,7 +44,8 @@ export const auth = betterAuth({
               "#ec4899",
               "#f43f5e",
             ];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            const randomColor =
+              colors[Math.floor(Math.random() * colors.length)];
 
             console.log("[afterCreateOrganization] Updating organization");
             await prisma.organization.update({
@@ -72,7 +73,9 @@ export const auth = betterAuth({
               data: { role: "owner" },
             });
 
-            console.log("[afterCreateOrganization] Hook completed successfully");
+            console.log(
+              "[afterCreateOrganization] Hook completed successfully"
+            );
           } catch (error) {
             console.error("[afterCreateOrganization] Error:", error);
             throw error;

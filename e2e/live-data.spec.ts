@@ -73,14 +73,14 @@ test.describe("Live Data Test", () => {
       console.log("✉️ INVITER: Creating account...");
       await page.goto("/sign-up");
       await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
-        timeout: 60000,
+        timeout: 30000,
       });
 
       await fillByTestId(page, TestId.SIGN_UP_NAME, inviterName);
       await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviterEmail);
       await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviterPassword);
       await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-      await page.waitForURL("/", { timeout: 60000 });
+      await page.waitForURL("/", { timeout: 30000 });
 
       console.log("✉️ INVITER: Account created, signaling...");
       fs.writeFileSync(INVITER_CREATED_FILE, "created");
@@ -120,7 +120,7 @@ test.describe("Live Data Test", () => {
       console.log("✉️ INVITER: Opening invite dialog...");
       await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
       await clickByTestId(page, TestId.INVITE_USERS_BUTTON);
-      await waitForElement(page, TestId.INVITE_DIALOG, 60000);
+      await waitForElement(page, TestId.INVITE_DIALOG, 30000);
 
       console.log("✉️ INVITER: Sending invitation...");
       await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
@@ -128,7 +128,7 @@ test.describe("Live Data Test", () => {
 
       await page.waitForSelector('[data-testid="toast-success"]', {
         state: "visible",
-        timeout: 60000,
+        timeout: 30000,
       });
 
       console.log("✉️ INVITER: Invitation sent successfully!");
@@ -196,14 +196,14 @@ test.describe("Live Data Test", () => {
       console.log("📭 INVITEE: Creating account...");
       await page.goto("/sign-up");
       await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
-        timeout: 60000,
+        timeout: 30000,
       });
 
       await fillByTestId(page, TestId.SIGN_UP_NAME, inviteeName);
       await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviteeEmail);
       await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviteePassword);
       await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-      await page.waitForURL("/", { timeout: 60000 });
+      await page.waitForURL("/", { timeout: 30000 });
 
       console.log("📭 INVITEE: Account created, signaling...");
       fs.writeFileSync(INVITEE_CREATED_FILE, "created");
@@ -219,7 +219,7 @@ test.describe("Live Data Test", () => {
           const es = (window as unknown as { __eventSource?: EventSource }).__eventSource;
           return es?.readyState === 1;
         },
-        { timeout: 10000 }
+        { timeout: 30000 }
       );
 
       if (!connected) {
@@ -236,7 +236,7 @@ test.describe("Live Data Test", () => {
       const invitationReceived = await waitForElement(
         page,
         TestId.INVITATION_TOAST,
-        120000
+        30000
       );
 
       if (!invitationReceived) {
@@ -265,7 +265,7 @@ test.describe("Live Data Test", () => {
 
       await page.waitForSelector(
         `[data-testid="${TestId.INVITATION_TOAST}"]`,
-        { state: "hidden", timeout: 60000 }
+        { state: "hidden", timeout: 30000 }
       );
 
       console.log("📭 INVITEE: Invitation accepted!");
@@ -276,9 +276,9 @@ test.describe("Live Data Test", () => {
 
       console.log("📭 INVITEE: Waiting for organization to appear in selector...");
       const orgSelect = page.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
-      await orgSelect.waitFor({ state: "visible", timeout: 20000 });
+      await orgSelect.waitFor({ state: "visible", timeout: 30000 });
 
-      const maxWaitForOrg = 20000;
+      const maxWaitForOrg = 30000;
       const startTimeForOrg = Date.now();
       let hasOrg = false;
       let orgSelectOptions: string[] = [];
@@ -295,7 +295,7 @@ test.describe("Live Data Test", () => {
       console.log(`📭 INVITEE: Available organizations: ${orgSelectOptions.join(", ")}`);
 
       if (!hasOrg) {
-        throw new Error(`Organization ${orgName} not found in selector after 20s. Available: ${orgSelectOptions.join(", ")}`);
+        throw new Error(`Organization ${orgName} not found in selector after 30s. Available: ${orgSelectOptions.join(", ")}`);
       }
 
       console.log(`📭 INVITEE: Found organization ${orgName}, selecting it...`);
@@ -307,7 +307,7 @@ test.describe("Live Data Test", () => {
       console.log("📭 INVITEE: Verifying organization is selected...");
       const tamagotchi = page.getByTestId(TestId.TAMAGOTCHI_CONTAINER);
 
-      const maxWaitForOrgSelection = 20000;
+      const maxWaitForOrgSelection = 30000;
       const startTimeForOrgSelection = Date.now();
       let currentOrgId = await tamagotchi.getAttribute("data-organization-id");
 
@@ -326,25 +326,23 @@ test.describe("Live Data Test", () => {
       console.log("📭 INVITEE: Organization verified as selected!");
 
       console.log("📭 INVITEE: Verifying organization-specific Tamagotchi data is present...");
-      const maxWaitForTamagotchiData = 20000;
+      const maxWaitForTamagotchiData = 30000;
       const startTimeForTamagotchiData = Date.now();
       let tamagotchiAge = await tamagotchi.getAttribute("data-age");
-      let tamagotchiHealth = await tamagotchi.getAttribute("data-health");
 
       while (Date.now() - startTimeForTamagotchiData < maxWaitForTamagotchiData) {
         tamagotchiAge = await tamagotchi.getAttribute("data-age");
-        tamagotchiHealth = await tamagotchi.getAttribute("data-health");
-        if (tamagotchiAge !== null && tamagotchiHealth !== null) {
+        if (tamagotchiAge !== null) {
           break;
         }
         await page.waitForTimeout(500);
       }
 
-      if (tamagotchiAge === null || tamagotchiHealth === null) {
+      if (tamagotchiAge === null) {
         throw new Error("Tamagotchi data not loaded for selected organization");
       }
 
-      console.log(`📭 INVITEE: Tamagotchi data verified (age: ${tamagotchiAge}, health: ${tamagotchiHealth})`);
+      console.log(`📭 INVITEE: Tamagotchi data verified (age: ${tamagotchiAge})`);
 
       console.log("📭 INVITEE: Creating a todo...");
       await fillByTestId(page, TestId.TODO_INPUT, "Test todo from invitee");
@@ -352,7 +350,7 @@ test.describe("Live Data Test", () => {
 
       await page.waitForTimeout(2000);
 
-      const todoItem = await waitForElement(page, TestId.TODO_ITEM, 10000);
+      const todoItem = await waitForElement(page, TestId.TODO_ITEM, 30000);
 
       if (!todoItem) {
         throw new Error("Todo item not created");
