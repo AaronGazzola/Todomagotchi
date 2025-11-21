@@ -5,7 +5,7 @@ This document lists all test cases in the repository.
 ## Test Index
 
 1. [Authentication Flow](#1-authentication-flow) - `npm run test:e2e:auth`
-2. [Live Data Updates](#2-live-data-updates) - `npm run test:e2e:live-data`
+2. [Live Data Updates](#2-live-data-updates) - `npm run test:e2e:live`
 
 ## Authentication Tests
 
@@ -18,6 +18,7 @@ This document lists all test cases in the repository.
 **Description:** Tests the complete authentication flow including sign up, sign out, and sign in functionality.
 
 **Pass Conditions:**
+
 - User can successfully sign up with name, email, and password
 - After sign up, user is redirected to home page (`/`)
 - Avatar menu displays the user's email address
@@ -38,6 +39,7 @@ This document lists all test cases in the repository.
 **Description:** Tests real-time data synchronization between two users using Server-Sent Events (SSE). Validates that organization invitations and todo updates are propagated via live data streams.
 
 **Test Configuration:**
+
 - Mode: Parallel execution
 - Workers: 2 parallel tests (inviter and invitee)
 - Synchronization: File-based coordination via `.test-sync` directory
@@ -45,6 +47,7 @@ This document lists all test cases in the repository.
 **Pass Conditions:**
 
 #### Inviter Flow:
+
 - Inviter can create an account successfully
 - Account creation signals to invitee via sync file
 - Inviter waits for invitee account creation (max 60s)
@@ -58,6 +61,7 @@ This document lists all test cases in the repository.
 - Tamagotchi age increases from 0 to > 0 after todo creation
 
 #### Invitee Flow:
+
 - Invitee waits for inviter account creation (max 60s)
 - Invitee can create an account successfully
 - Account creation signals to inviter via sync file
@@ -76,12 +80,14 @@ This document lists all test cases in the repository.
 - Todo creation signals to inviter via sync file
 
 **Synchronization Files:**
+
 - `.test-sync/sse-ready-simple.txt` - Invitee SSE connection ready
 - `.test-sync/inviter-created.txt` - Inviter account created
 - `.test-sync/invitee-created.txt` - Invitee account created
 - `.test-sync/todo-created.txt` - Invitee todo created
 
 **Cleanup:**
+
 - All sync files deleted in beforeAll and afterAll hooks
 - All test users, sessions, organizations, members, invitations, todos, and tamagotchis deleted
 - Prisma connection closed after all tests

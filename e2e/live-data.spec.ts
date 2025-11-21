@@ -18,7 +18,6 @@ test.describe("Live Data Test", () => {
   const inviteeName = "Simple Invitee";
 
   const SYNC_DIR = path.join(process.cwd(), ".test-sync");
-  const SSE_READY_FILE = path.join(SYNC_DIR, "sse-ready-simple.txt");
   const INVITER_CREATED_FILE = path.join(SYNC_DIR, "inviter-created.txt");
   const INVITEE_CREATED_FILE = path.join(SYNC_DIR, "invitee-created.txt");
   const TODO_CREATED_FILE = path.join(SYNC_DIR, "todo-created.txt");
@@ -26,9 +25,6 @@ test.describe("Live Data Test", () => {
   test.beforeAll(async () => {
     if (!fs.existsSync(SYNC_DIR)) {
       fs.mkdirSync(SYNC_DIR, { recursive: true });
-    }
-    if (fs.existsSync(SSE_READY_FILE)) {
-      fs.unlinkSync(SSE_READY_FILE);
     }
     if (fs.existsSync(INVITER_CREATED_FILE)) {
       fs.unlinkSync(INVITER_CREATED_FILE);
@@ -44,9 +40,6 @@ test.describe("Live Data Test", () => {
   });
 
   test.afterAll(async () => {
-    if (fs.existsSync(SSE_READY_FILE)) {
-      fs.unlinkSync(SSE_READY_FILE);
-    }
     if (fs.existsSync(INVITER_CREATED_FILE)) {
       fs.unlinkSync(INVITER_CREATED_FILE);
     }
@@ -100,23 +93,6 @@ test.describe("Live Data Test", () => {
         throw new Error("Invitee account not created after 60s");
       }
 
-      console.log("✉️ INVITER: Waiting for invitee SSE connection...");
-      const maxWaitTimeForSSE = 30000;
-      const startTimeForSSE = Date.now();
-
-      while (Date.now() - startTimeForSSE < maxWaitTimeForSSE) {
-        if (fs.existsSync(SSE_READY_FILE)) {
-          break;
-        }
-        await page.waitForTimeout(100);
-      }
-
-      if (!fs.existsSync(SSE_READY_FILE)) {
-        throw new Error(
-          "Invitee SSE connection not ready after 30s - sync file not created"
-        );
-      }
-
       console.log("✉️ INVITER: Opening invite dialog...");
       await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
       await clickByTestId(page, TestId.INVITE_USERS_BUTTON);
@@ -148,8 +124,8 @@ test.describe("Live Data Test", () => {
         throw new Error("Todo not created by invitee after 120s");
       }
 
-      console.log("✉️ INVITER: Waiting for live data update...");
-      await page.waitForTimeout(3000);
+      console.log("✉️ INVITER: Waiting for polling to fetch todo (5s refetch interval + buffer)...");
+      await page.waitForTimeout(8000);
 
       console.log("✉️ INVITER: Verifying todo is visible...");
       const todoItem = await waitForElement(page, TestId.TODO_ITEM, 30000);
@@ -170,7 +146,7 @@ test.describe("Live Data Test", () => {
       }
 
       console.log(`✉️ INVITER: Tamagotchi age verified: ${age}`);
-      console.log("✉️ INVITER: Live data updates working successfully!");
+      console.log("✉️ INVITER: Polling-based live data updates working successfully!");
   });
 
   test("invitee: create account, receive invitation, accept, and create todo", async ({
@@ -207,30 +183,6 @@ test.describe("Live Data Test", () => {
 
       console.log("📭 INVITEE: Account created, signaling...");
       fs.writeFileSync(INVITEE_CREATED_FILE, "created");
-
-      console.log(
-        "📭 INVITEE: Waiting for user data and SSE initialization..."
-      );
-      await page.waitForTimeout(2000);
-
-      console.log("📭 INVITEE: Verifying SSE connection...");
-      const connected = await page.waitForFunction(
-        () => {
-          const es = (window as unknown as { __eventSource?: EventSource }).__eventSource;
-          return es?.readyState === 1;
-        },
-        { timeout: 30000 }
-      );
-
-      if (!connected) {
-        throw new Error("SSE connection not established within 10s");
-      }
-
-      console.log("📭 INVITEE: SSE connected, signaling readiness...");
-      if (!fs.existsSync(SYNC_DIR)) {
-        fs.mkdirSync(SYNC_DIR, { recursive: true });
-      }
-      fs.writeFileSync(SSE_READY_FILE, "ready");
 
       console.log("📭 INVITEE: Waiting for invitation toast...");
       const invitationReceived = await waitForElement(
@@ -360,7 +312,7 @@ test.describe("Live Data Test", () => {
 
       fs.writeFileSync(TODO_CREATED_FILE, "created");
 
-      console.log("📭 INVITEE: Test completed successfully! Real-time invitation and data sync works!");
+      console.log("📭 INVITEE: Test completed successfully! Polling-based invitation and data sync works!");
   });
 });
 

@@ -136,7 +136,8 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
               <div
                 key={todo.id}
                 className="flex items-center gap-3 p-4 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
-                data-testid={`${TestId.TODO_ITEM}-${todo.id}`}
+                data-testid={TestId.TODO_ITEM}
+                data-id={todo.id}
               >
                 <Checkbox
                   checked={todo.completed}
