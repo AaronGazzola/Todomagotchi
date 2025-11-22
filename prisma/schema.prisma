@@ -156,3 +156,16 @@ model Tamagotchi {
 
   @@schema("public")
 }
+
+model Message {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  text           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@schema("public")
+  @@index([organizationId])
+  @@index([createdAt])
+}

@@ -1,4 +1,4 @@
-import { Todo } from "@prisma/client";
+import { Message, Todo } from "@prisma/client";
 import { create } from "zustand";
 
 interface TodoState {
@@ -7,12 +7,28 @@ interface TodoState {
   reset: () => void;
 }
 
-const initialState = {
+const initialTodoState = {
   todos: null,
 };
 
 export const useTodoStore = create<TodoState>()((set) => ({
-  ...initialState,
+  ...initialTodoState,
   setTodos: (todos) => set({ todos }),
-  reset: () => set(initialState),
+  reset: () => set(initialTodoState),
+}));
+
+interface MessageState {
+  messages: Message[] | null;
+  setMessages: (messages: Message[]) => void;
+  reset: () => void;
+}
+
+const initialMessageState = {
+  messages: null,
+};
+
+export const useMessageStore = create<MessageState>()((set) => ({
+  ...initialMessageState,
+  setMessages: (messages) => set({ messages }),
+  reset: () => set(initialMessageState),
 }));

@@ -2,6 +2,7 @@
 
 import { AvatarMenu } from "@/app/(components)/AvatarMenu";
 import { InvitationToasts } from "@/app/(components)/InvitationToasts";
+import { Messaging } from "@/app/(components)/Messaging";
 import { Tamagotchi } from "@/app/(components)/Tamagotchi";
 import { TodoList } from "@/app/(components)/TodoList";
 import { useActiveOrganizationId } from "./layout.hooks";
@@ -36,6 +37,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {hasActiveOrganization && <Messaging isLoading={isLoading} />}
     </div>
   );
 }

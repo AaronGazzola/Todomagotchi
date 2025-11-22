@@ -7,8 +7,10 @@ import {
   createTodoAction,
   toggleTodoAction,
   deleteTodoAction,
+  getMessagesAction,
+  createMessageAction,
 } from "./page.actions";
-import { useTodoStore } from "./page.stores";
+import { useMessageStore, useTodoStore } from "./page.stores";
 import { useGetUser } from "./layout.hooks";
 import { useGetTamagotchi } from "./(components)/Tamagotchi.hooks";
 import { useEffect } from "react";
@@ -183,6 +185,88 @@ export const useDeleteTodo = () => {
         { label: LOG_LABELS.TODOS_HOOKS }
       );
       showErrorToast(error.message || "Failed to delete todo", "Delete Failed");
+    },
+  });
+};
+
+export const useGetMessages = () => {
+  const { setMessages } = useMessageStore();
+
+  const query = useQuery({
+    queryKey: ["messages"],
+    queryFn: async () => {
+      conditionalLog(
+        { message: "getMessagesAction - start" },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      const { data, error } = await getMessagesAction();
+      conditionalLog(
+        {
+          message: "getMessagesAction - result",
+          hasData: !!data,
+          error: error || null,
+          messagesCount: data?.length || 0,
+          messages: data || [],
+        },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      if (error) throw new Error(error);
+      return data || [];
+    },
+    refetchInterval: 5000,
+  });
+
+  useEffect(() => {
+    if (query.data) {
+      setMessages(query.data);
+      conditionalLog(
+        {
+          message: "messages store updated",
+          messagesCount: query.data.length,
+        },
+        { label: LOG_LABELS.MESSAGES }
+      );
+    }
+  }, [query.data, setMessages]);
+
+  return query;
+};
+
+export const useCreateMessage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (text: string) => {
+      conditionalLog(
+        { message: "createMessageAction - start", text },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      const { data, error } = await createMessageAction(text);
+      conditionalLog(
+        {
+          message: "createMessageAction - result",
+          hasData: !!data,
+          error: error || null,
+          data,
+        },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      if (error) throw new Error(error);
+      return data;
+    },
+    onSuccess: () => {
+      conditionalLog(
+        { message: "useCreateMessage - onSuccess" },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+    },
+    onError: (error: Error) => {
+      conditionalLog(
+        { message: "useCreateMessage - onError", error: error.message },
+        { label: LOG_LABELS.MESSAGES }
+      );
+      showErrorToast(error.message || "Failed to send message", "Send Failed");
     },
   });
 };

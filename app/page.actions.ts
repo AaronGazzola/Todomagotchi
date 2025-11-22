@@ -2,7 +2,7 @@
 
 import { ActionResponse, getActionResponse } from "@/lib/action.utils";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
-import { Todo } from "@prisma/client";
+import { Message, Todo } from "@prisma/client";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 
@@ -178,6 +178,86 @@ export const deleteTodoAction = async (
     conditionalLog(
       { message: "deleteTodoAction - error", error },
       { label: LOG_LABELS.TODOS_ACTIONS }
+    );
+    return getActionResponse({ error });
+  }
+};
+
+export const getMessagesAction = async (): Promise<
+  ActionResponse<Message[]>
+> => {
+  try {
+    conditionalLog(
+      { message: "getMessagesAction - start" },
+      { label: LOG_LABELS.MESSAGES }
+    );
+    const { db, session } = await getAuthenticatedClient();
+
+    const activeOrganizationId = session.session.activeOrganizationId;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    conditionalLog(
+      { message: "getMessagesAction - activeOrganizationId", activeOrganizationId },
+      { label: LOG_LABELS.MESSAGES }
+    );
+
+    const messages = await db.message.findMany({
+      where: { organizationId: activeOrganizationId },
+      orderBy: { createdAt: "asc" },
+    });
+
+    conditionalLog(
+      { message: "getMessagesAction - result", messagesCount: messages.length, messages },
+      { label: LOG_LABELS.MESSAGES }
+    );
+    return getActionResponse({ data: messages });
+  } catch (error) {
+    conditionalLog(
+      { message: "getMessagesAction - error", error },
+      { label: LOG_LABELS.MESSAGES }
+    );
+    return getActionResponse({ error });
+  }
+};
+
+export const createMessageAction = async (
+  text: string
+): Promise<ActionResponse<Message>> => {
+  try {
+    conditionalLog(
+      { message: "createMessageAction - start", text },
+      { label: LOG_LABELS.MESSAGES }
+    );
+    const { db, session } = await getAuthenticatedClient();
+
+    const activeOrganizationId = session.session.activeOrganizationId;
+    const userId = session.user.id;
+
+    if (!activeOrganizationId) {
+      throw new Error("No active organization");
+    }
+
+    const message = await db.message.create({
+      data: {
+        text,
+        organizationId: activeOrganizationId,
+        userId,
+      },
+    });
+
+    conditionalLog(
+      { message: "createMessageAction - message created", data: message },
+      { label: LOG_LABELS.MESSAGES }
+    );
+
+    return getActionResponse({ data: message });
+  } catch (error) {
+    conditionalLog(
+      { message: "createMessageAction - error", error },
+      { label: LOG_LABELS.MESSAGES }
     );
     return getActionResponse({ error });
   }

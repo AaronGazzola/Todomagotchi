@@ -23,6 +23,12 @@
     "test:e2e:live": "playwright test e2e/live-data.spec.ts --workers=2",
     "test:e2e:live:headed": "playwright test e2e/live-data.spec.ts --headed --workers=2",
     "test:e2e:live:trace": "TEST_TRACE=true playwright test e2e/live-data.spec.ts --workers=2",
+    "test:e2e:messaging": "playwright test e2e/messaging.spec.ts --workers=1",
+    "test:e2e:messaging:headed": "playwright test e2e/messaging.spec.ts --headed --workers=1",
+    "test:e2e:messaging:trace": "TEST_TRACE=true playwright test e2e/messaging.spec.ts --workers=1",
+    "test:e2e:worker-sync": "playwright test e2e/worker-sync.spec.ts --workers=2",
+    "test:e2e:worker-sync:headed": "playwright test e2e/worker-sync.spec.ts --headed --workers=2",
+    "test:e2e:worker-sync:trace": "TEST_TRACE=true playwright test e2e/worker-sync.spec.ts --workers=2",
     "test:report": "tsx scripts/generate-test-report.ts",
     "test:report:cleanup": "tsx scripts/generate-test-report.ts --cleanup"
   },

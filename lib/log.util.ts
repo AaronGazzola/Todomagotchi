@@ -21,6 +21,7 @@ export enum LOG_LABELS {
   TODOS_ACTIONS = "todos-actions",
   TAMAGOTCHI_HOOKS = "tamagotchi-hooks",
   TAMAGOTCHI_ACTIONS = "tamagotchi-actions",
+  MESSAGES = "messages",
 }
 
 interface ConditionalLogOptions {
