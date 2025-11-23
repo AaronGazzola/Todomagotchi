@@ -36,6 +36,7 @@ export const useSetActiveOrganization = () => {
       queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       showSuccessToast("Organization switched");
     },
     onError: (error: Error) => {
@@ -153,6 +154,7 @@ export const useResetOrganizationData = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       showSuccessToast("Organization data reset successfully");
     },
     onError: (error: Error) => {
@@ -222,6 +224,7 @@ export const useAcceptInvitation = () => {
       queryClient.invalidateQueries({ queryKey: ["user-organizations"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       showSuccessToast("Invitation accepted successfully");
     },
     onError: (error: Error) => {

@@ -1,8 +1,4 @@
-import {
-  clickByTestId,
-  fillByTestId,
-  waitForElement,
-} from "@/lib/test.utils";
+import { clickByTestId, fillByTestId, waitForElement } from "@/lib/test.utils";
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
@@ -11,285 +7,430 @@ import { expect, test } from "./utils/test-fixtures";
 
 const prisma = new PrismaClient();
 
-test.describe("Messaging Live Updates", () => {
+test.describe("Live Data Test", () => {
   test.describe.configure({ mode: 'parallel' });
 
-  const senderEmail = "messaging-sender@example.com";
-  const senderPassword = "SenderPass123!";
-  const senderName = "Messaging Sender";
-  const receiverEmail = "messaging-receiver@example.com";
-  const receiverPassword = "ReceiverPass123!";
-  const receiverName = "Messaging Receiver";
+  const inviterEmail = "simple-inviter@example.com";
+  const inviterPassword = "InviterPass123!";
+  const inviterName = "Simple Inviter";
+  const inviteeEmail = "simple-invitee@example.com";
+  const inviteePassword = "InviteePass123!";
+  const inviteeName = "Simple Invitee";
 
   const SYNC_DIR = path.join(process.cwd(), ".test-sync");
-  const SENDER_CREATED_FILE = path.join(SYNC_DIR, "sender-created.txt");
-  const RECEIVER_CREATED_FILE = path.join(SYNC_DIR, "receiver-created.txt");
-  const SENDER_MESSAGE_SENT_FILE = path.join(SYNC_DIR, "sender-message-sent.txt");
-  const RECEIVER_MESSAGE_SENT_FILE = path.join(SYNC_DIR, "receiver-message-sent.txt");
+  const INVITER_CREATED_FILE = path.join(SYNC_DIR, "inviter-created.txt");
+  const INVITEE_CREATED_FILE = path.join(SYNC_DIR, "invitee-created.txt");
+  const INVITATION_SENT_FILE = path.join(SYNC_DIR, "invitation-sent.txt");
+  const INVITATION_ACCEPTED_FILE = path.join(SYNC_DIR, "invitation-accepted.txt");
+  const INVITER_MESSAGE_SENT_FILE = path.join(SYNC_DIR, "inviter-message-sent.txt");
+  const INVITEE_MESSAGE_SENT_FILE = path.join(SYNC_DIR, "invitee-message-sent.txt");
 
   test.beforeAll(async () => {
     if (!fs.existsSync(SYNC_DIR)) {
       fs.mkdirSync(SYNC_DIR, { recursive: true });
     }
-    if (fs.existsSync(SENDER_CREATED_FILE)) {
-      fs.unlinkSync(SENDER_CREATED_FILE);
+    if (fs.existsSync(INVITER_CREATED_FILE)) {
+      fs.unlinkSync(INVITER_CREATED_FILE);
     }
-    if (fs.existsSync(RECEIVER_CREATED_FILE)) {
-      fs.unlinkSync(RECEIVER_CREATED_FILE);
+    if (fs.existsSync(INVITEE_CREATED_FILE)) {
+      fs.unlinkSync(INVITEE_CREATED_FILE);
     }
-    if (fs.existsSync(SENDER_MESSAGE_SENT_FILE)) {
-      fs.unlinkSync(SENDER_MESSAGE_SENT_FILE);
+    if (fs.existsSync(INVITATION_SENT_FILE)) {
+      fs.unlinkSync(INVITATION_SENT_FILE);
     }
-    if (fs.existsSync(RECEIVER_MESSAGE_SENT_FILE)) {
-      fs.unlinkSync(RECEIVER_MESSAGE_SENT_FILE);
+    if (fs.existsSync(INVITATION_ACCEPTED_FILE)) {
+      fs.unlinkSync(INVITATION_ACCEPTED_FILE);
+    }
+    if (fs.existsSync(INVITER_MESSAGE_SENT_FILE)) {
+      fs.unlinkSync(INVITER_MESSAGE_SENT_FILE);
+    }
+    if (fs.existsSync(INVITEE_MESSAGE_SENT_FILE)) {
+      fs.unlinkSync(INVITEE_MESSAGE_SENT_FILE);
     }
 
-    await Promise.all([cleanupUser(senderEmail), cleanupUser(receiverEmail)]);
+    await Promise.all([cleanupUser(inviterEmail), cleanupUser(inviteeEmail)]);
   });
 
   test.afterAll(async () => {
-    if (fs.existsSync(SENDER_CREATED_FILE)) {
-      fs.unlinkSync(SENDER_CREATED_FILE);
+    if (fs.existsSync(INVITER_CREATED_FILE)) {
+      fs.unlinkSync(INVITER_CREATED_FILE);
     }
-    if (fs.existsSync(RECEIVER_CREATED_FILE)) {
-      fs.unlinkSync(RECEIVER_CREATED_FILE);
+    if (fs.existsSync(INVITEE_CREATED_FILE)) {
+      fs.unlinkSync(INVITEE_CREATED_FILE);
     }
-    if (fs.existsSync(SENDER_MESSAGE_SENT_FILE)) {
-      fs.unlinkSync(SENDER_MESSAGE_SENT_FILE);
+    if (fs.existsSync(INVITATION_SENT_FILE)) {
+      fs.unlinkSync(INVITATION_SENT_FILE);
     }
-    if (fs.existsSync(RECEIVER_MESSAGE_SENT_FILE)) {
-      fs.unlinkSync(RECEIVER_MESSAGE_SENT_FILE);
+    if (fs.existsSync(INVITATION_ACCEPTED_FILE)) {
+      fs.unlinkSync(INVITATION_ACCEPTED_FILE);
+    }
+    if (fs.existsSync(INVITER_MESSAGE_SENT_FILE)) {
+      fs.unlinkSync(INVITER_MESSAGE_SENT_FILE);
+    }
+    if (fs.existsSync(INVITEE_MESSAGE_SENT_FILE)) {
+      fs.unlinkSync(INVITEE_MESSAGE_SENT_FILE);
     }
     if (fs.existsSync(SYNC_DIR) && fs.readdirSync(SYNC_DIR).length === 0) {
       fs.rmdirSync(SYNC_DIR);
     }
 
-    await Promise.all([cleanupUser(senderEmail), cleanupUser(receiverEmail)]);
+    await Promise.all([cleanupUser(inviterEmail), cleanupUser(inviteeEmail)]);
 
     await prisma.$disconnect();
   });
 
-  test("sender: create account, send message, and verify receiver's reply via live update", async ({
+  test("inviter: create account and signal", async ({
     page,
   }) => {
-      console.log("\n📤 SENDER: Starting flow...");
+      console.log("\n✉️ INVITER: Starting flow...");
 
-      console.log("📤 SENDER: Creating account...");
+      console.log("✉️ INVITER: Creating account...");
       await page.goto("/sign-up");
       await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
         timeout: 30000,
       });
 
-      await fillByTestId(page, TestId.SIGN_UP_NAME, senderName);
-      await fillByTestId(page, TestId.SIGN_UP_EMAIL, senderEmail);
-      await fillByTestId(page, TestId.SIGN_UP_PASSWORD, senderPassword);
+      await fillByTestId(page, TestId.SIGN_UP_NAME, inviterName);
+      await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviterEmail);
+      await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviterPassword);
       await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
       await page.waitForURL("/", { timeout: 30000 });
 
-      console.log("📤 SENDER: Account created, signaling...");
-      fs.writeFileSync(SENDER_CREATED_FILE, "created");
+      console.log("✉️ INVITER: Account created, signaling...");
+      fs.writeFileSync(INVITER_CREATED_FILE, "created");
 
-      console.log("📤 SENDER: Waiting for receiver to be created...");
+      console.log("✉️ INVITER: Storing original organization ID...");
+      const tamagotchi = page.getByTestId(TestId.TAMAGOTCHI_CONTAINER);
+      const originalOrgId = await tamagotchi.getAttribute("data-organization-id");
+      console.log(`✉️ INVITER: Original org ID: ${originalOrgId}`);
+
+      console.log("✉️ INVITER: Waiting for invitee to be created...");
       const maxWaitTime = 60000;
       const startTime = Date.now();
 
       while (Date.now() - startTime < maxWaitTime) {
-        if (fs.existsSync(RECEIVER_CREATED_FILE)) {
+        if (fs.existsSync(INVITEE_CREATED_FILE)) {
           break;
         }
         await page.waitForTimeout(100);
       }
 
-      if (!fs.existsSync(RECEIVER_CREATED_FILE)) {
-        throw new Error("Receiver account not created after 60s");
+      if (!fs.existsSync(INVITEE_CREATED_FILE)) {
+        throw new Error("Invitee account not created after 60s");
       }
 
-      console.log("📤 SENDER: Receiver ready, expanding messaging component...");
-      const expandButton = await waitForElement(
-        page,
-        TestId.MESSAGE_EXPAND_BUTTON,
-        20000
-      );
+      console.log("✉️ INVITER: Invitee synchronized successfully!");
 
-      if (!expandButton) {
-        throw new Error("Message expand button not found");
+      console.log("✉️ INVITER: Opening invite dialog...");
+      await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
+      await clickByTestId(page, TestId.INVITE_USERS_BUTTON);
+      await waitForElement(page, TestId.INVITE_DIALOG, 30000);
+
+      console.log("✉️ INVITER: Sending invitation...");
+      await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
+      await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
+
+      await page.waitForSelector('[data-testid="toast-success"]', {
+        state: "visible",
+        timeout: 30000,
+      });
+
+      console.log("✉️ INVITER: Invitation sent successfully!");
+      fs.writeFileSync(INVITATION_SENT_FILE, "sent");
+
+      console.log("✉️ INVITER: Waiting for invitee to accept invitation...");
+      const maxInvitationWait = 60000;
+      const invitationStartTime = Date.now();
+
+      while (Date.now() - invitationStartTime < maxInvitationWait) {
+        if (fs.existsSync(INVITATION_ACCEPTED_FILE)) {
+          break;
+        }
+        await page.waitForTimeout(100);
       }
 
+      if (!fs.existsSync(INVITATION_ACCEPTED_FILE)) {
+        throw new Error("Invitation not accepted after 60s");
+      }
+
+      console.log("✉️ INVITER: Invitation accepted!");
+
+      console.log("✉️ INVITER: Expanding message component...");
       await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
-      await page.waitForTimeout(500);
+      await expect(page.getByTestId(TestId.MESSAGE_CHAT_CONTAINER)).toBeVisible({
+        timeout: 10000,
+      });
 
-      const chatContainer = await waitForElement(
-        page,
-        TestId.MESSAGE_CHAT_CONTAINER,
-        20000
+      console.log("✉️ INVITER: Sending message to invitee...");
+      const inviterMessage = "Hello from inviter!";
+      await fillByTestId(page, TestId.MESSAGE_INPUT, inviterMessage);
+      await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+
+      await expect(page.getByTestId(TestId.MESSAGE_ITEM).filter({ hasText: inviterMessage })).toBeVisible({
+        timeout: 10000,
+      });
+
+      console.log("✉️ INVITER: Message sent, signaling...");
+      fs.writeFileSync(INVITER_MESSAGE_SENT_FILE, "sent");
+
+      console.log("✉️ INVITER: Waiting for invitee reply...");
+      const inviteeReplyMessage = "Hello back from invitee!";
+
+      await page.waitForFunction(
+        ({ testId, text }) => {
+          const items = document.querySelectorAll(`[data-testid="${testId}"]`);
+          return Array.from(items).some(item => item.textContent?.includes(text));
+        },
+        { testId: TestId.MESSAGE_ITEM, text: inviteeReplyMessage },
+        { timeout: 60000 }
       );
 
-      if (!chatContainer) {
-        throw new Error("Chat container did not become visible");
-      }
+      console.log("✉️ INVITER: Received reply in real-time!");
 
-      console.log("📤 SENDER: Sending message...");
-      const senderMessageText = "Hello from sender!";
-      await fillByTestId(page, TestId.MESSAGE_INPUT, senderMessageText);
-      await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
-      await page.waitForTimeout(1000);
+      console.log("✉️ INVITER: Closing message component...");
+      await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
+      await expect(page.getByTestId(TestId.MESSAGE_CHAT_CONTAINER)).not.toBeVisible({
+        timeout: 10000,
+      });
 
-      const messageCount = await page.getByTestId(TestId.MESSAGE_ITEM).count();
-      if (messageCount !== 1) {
-        throw new Error(`Expected 1 message, found ${messageCount}`);
-      }
+      console.log("✉️ INVITER: Switching back to original organization...");
+      await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
+      const orgSelect = page.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+      await orgSelect.waitFor({ state: "visible", timeout: 30000 });
+      await orgSelect.selectOption({ value: originalOrgId || "" });
+      await page.keyboard.press("Escape");
 
-      console.log("📤 SENDER: Message sent successfully, signaling...");
-      fs.writeFileSync(SENDER_MESSAGE_SENT_FILE, "created");
+      console.log("✉️ INVITER: Verifying original organization is selected...");
+      const maxWaitForOrgSwitch = 30000;
+      const startTimeForOrgSwitch = Date.now();
+      let currentOrgId = await tamagotchi.getAttribute("data-organization-id");
 
-      console.log("📤 SENDER: Waiting for receiver to send reply...");
-      const maxWaitTimeForReply = 120000;
-      const startTimeForReply = Date.now();
-
-      while (Date.now() - startTimeForReply < maxWaitTimeForReply) {
-        if (fs.existsSync(RECEIVER_MESSAGE_SENT_FILE)) {
+      while (Date.now() - startTimeForOrgSwitch < maxWaitForOrgSwitch) {
+        currentOrgId = await tamagotchi.getAttribute("data-organization-id");
+        if (currentOrgId === originalOrgId) {
           break;
         }
-        await page.waitForTimeout(100);
+        await page.waitForTimeout(500);
       }
 
-      if (!fs.existsSync(RECEIVER_MESSAGE_SENT_FILE)) {
-        throw new Error("Receiver reply not sent after 120s");
+      if (currentOrgId !== originalOrgId) {
+        throw new Error(`Failed to switch back to original org. Expected: ${originalOrgId}, Got: ${currentOrgId}`);
       }
 
-      console.log("📤 SENDER: Waiting for polling to fetch reply (5s refetch interval + buffer)...");
-      await page.waitForTimeout(8000);
+      console.log("✉️ INVITER: Original organization selected!");
 
-      console.log("📤 SENDER: Verifying receiver's reply is visible...");
-      const messages = await page.getByTestId(TestId.MESSAGE_ITEM).all();
-      const messageTexts = await Promise.all(
-        messages.map((m) => m.getByTestId(TestId.MESSAGE_TEXT).textContent())
-      );
+      console.log("✉️ INVITER: Expanding message component...");
+      await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
+      await expect(page.getByTestId(TestId.MESSAGE_CHAT_CONTAINER)).toBeVisible({
+        timeout: 10000,
+      });
 
-      const hasReply = messageTexts.some(text => text?.includes("Hi from receiver!"));
+      console.log("✉️ INVITER: Verifying messages are NOT visible in original org...");
+      await page.waitForTimeout(2000);
 
-      if (!hasReply) {
-        throw new Error(`Receiver's reply not visible after live data update. Messages: ${JSON.stringify(messageTexts)}`);
+      const messageItems = page.getByTestId(TestId.MESSAGE_ITEM);
+      const messageCount = await messageItems.count();
+
+      if (messageCount > 0) {
+        throw new Error(`Expected 0 messages in original org, but found ${messageCount}`);
       }
 
-      if (messages.length !== 2) {
-        throw new Error(`Expected 2 messages, found ${messages.length}`);
-      }
-
-      console.log("📤 SENDER: Receiver's reply verified successfully!");
-      console.log("📤 SENDER: Polling-based live message updates working successfully!");
+      console.log("✉️ INVITER: Confirmed - messages are org-specific!");
+      console.log("✉️ INVITER: Test completed successfully!");
   });
 
-  test("receiver: create account, receive message via live update, and send reply", async ({
+  test("invitee: create account and signal", async ({
     page,
   }) => {
-    console.log("\n📥 RECEIVER: Starting flow...");
+      console.log("\n📭 INVITEE: Starting flow...");
 
-    console.log("📥 RECEIVER: Waiting for sender to be created...");
-    const maxWaitTime = 60000;
-    const startTime = Date.now();
+      console.log("📭 INVITEE: Waiting for inviter to be created...");
+      const maxWaitTime = 60000;
+      const startTime = Date.now();
 
-    while (Date.now() - startTime < maxWaitTime) {
-      if (fs.existsSync(SENDER_CREATED_FILE)) {
-        break;
+      while (Date.now() - startTime < maxWaitTime) {
+        if (fs.existsSync(INVITER_CREATED_FILE)) {
+          break;
+        }
+        await page.waitForTimeout(100);
       }
-      await page.waitForTimeout(100);
-    }
 
-    if (!fs.existsSync(SENDER_CREATED_FILE)) {
-      throw new Error("Sender account not created after 60s");
-    }
-
-    console.log("📥 RECEIVER: Creating account...");
-    await page.goto("/sign-up");
-    await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
-      timeout: 30000,
-    });
-
-    await fillByTestId(page, TestId.SIGN_UP_NAME, receiverName);
-    await fillByTestId(page, TestId.SIGN_UP_EMAIL, receiverEmail);
-    await fillByTestId(page, TestId.SIGN_UP_PASSWORD, receiverPassword);
-    await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-    await page.waitForURL("/", { timeout: 30000 });
-
-    console.log("📥 RECEIVER: Account created, signaling...");
-    fs.writeFileSync(RECEIVER_CREATED_FILE, "created");
-
-    console.log("📥 RECEIVER: Waiting for sender to send message...");
-    const maxWaitTimeForMessage = 120000;
-    const startTimeForMessage = Date.now();
-
-    while (Date.now() - startTimeForMessage < maxWaitTimeForMessage) {
-      if (fs.existsSync(SENDER_MESSAGE_SENT_FILE)) {
-        break;
+      if (!fs.existsSync(INVITER_CREATED_FILE)) {
+        throw new Error("Inviter account not created after 60s");
       }
-      await page.waitForTimeout(100);
-    }
 
-    if (!fs.existsSync(SENDER_MESSAGE_SENT_FILE)) {
-      throw new Error("Sender message not sent after 120s");
-    }
+      console.log("📭 INVITEE: Creating account...");
+      await page.goto("/sign-up");
+      await expect(page.getByTestId(TestId.SIGN_UP_NAME)).toBeVisible({
+        timeout: 30000,
+      });
 
-    console.log("📥 RECEIVER: Expanding messaging component...");
-    const expandButton = await waitForElement(
-      page,
-      TestId.MESSAGE_EXPAND_BUTTON,
-      20000
-    );
+      await fillByTestId(page, TestId.SIGN_UP_NAME, inviteeName);
+      await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviteeEmail);
+      await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviteePassword);
+      await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
+      await page.waitForURL("/", { timeout: 30000 });
 
-    if (!expandButton) {
-      throw new Error("Message expand button not found");
-    }
+      console.log("📭 INVITEE: Account created, signaling...");
+      fs.writeFileSync(INVITEE_CREATED_FILE, "created");
 
-    await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
-    await page.waitForTimeout(500);
+      console.log("📭 INVITEE: Synchronized successfully!");
 
-    const chatContainer = await waitForElement(
-      page,
-      TestId.MESSAGE_CHAT_CONTAINER,
-      20000
-    );
+      console.log("📭 INVITEE: Waiting for invitation...");
+      const maxInvitationWait = 60000;
+      const invitationStartTime = Date.now();
 
-    if (!chatContainer) {
-      throw new Error("Chat container did not become visible");
-    }
+      while (Date.now() - invitationStartTime < maxInvitationWait) {
+        if (fs.existsSync(INVITATION_SENT_FILE)) {
+          break;
+        }
+        await page.waitForTimeout(100);
+      }
 
-    console.log("📥 RECEIVER: Waiting for polling to fetch message (5s refetch interval + buffer)...");
-    await page.waitForTimeout(8000);
+      if (!fs.existsSync(INVITATION_SENT_FILE)) {
+        throw new Error("Invitation not sent after 60s");
+      }
 
-    console.log("📥 RECEIVER: Verifying sender's message is visible...");
-    const messages = await page.getByTestId(TestId.MESSAGE_ITEM).all();
-    const messageTexts = await Promise.all(
-      messages.map((m) => m.getByTestId(TestId.MESSAGE_TEXT).textContent())
-    );
+      console.log("📭 INVITEE: Waiting for invitation toast...");
+      const invitationReceived = await waitForElement(
+        page,
+        TestId.INVITATION_TOAST,
+        30000
+      );
 
-    const hasSenderMessage = messageTexts.some(text => text?.includes("Hello from sender!"));
+      if (!invitationReceived) {
+        throw new Error("Invitation toast did not appear within 30s");
+      }
 
-    if (!hasSenderMessage) {
-      throw new Error(`Sender's message not visible after live data update. Messages: ${JSON.stringify(messageTexts)}`);
-    }
+      console.log("📭 INVITEE: Invitation received!");
 
-    if (messages.length !== 1) {
-      throw new Error(`Expected 1 message, found ${messages.length}`);
-    }
+      const toast = page.getByTestId(TestId.INVITATION_TOAST);
+      const orgName = await toast.getAttribute("data-org-name");
+      const orgId = await toast.getAttribute("data-organization-id");
 
-    console.log("📥 RECEIVER: Sender's message verified successfully!");
+      console.log(`📭 INVITEE: Received invitation from org: ${orgName}`);
+      console.log(`📭 INVITEE: Organization ID: ${orgId}`);
 
-    console.log("📥 RECEIVER: Sending reply...");
-    const receiverMessageText = "Hi from receiver!";
-    await fillByTestId(page, TestId.MESSAGE_INPUT, receiverMessageText);
-    await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
-    await page.waitForTimeout(1000);
+      if (!orgName || orgName.trim() === "") {
+        throw new Error("Organization name is empty or missing in toast");
+      }
 
-    const updatedMessageCount = await page.getByTestId(TestId.MESSAGE_ITEM).count();
-    if (updatedMessageCount !== 2) {
-      throw new Error(`Expected 2 messages after reply, found ${updatedMessageCount}`);
-    }
+      if (!orgId || orgId.trim() === "") {
+        throw new Error("Organization ID is empty or missing in toast");
+      }
 
-    console.log("📥 RECEIVER: Reply sent successfully, signaling...");
-    fs.writeFileSync(RECEIVER_MESSAGE_SENT_FILE, "created");
+      console.log("📭 INVITEE: Accepting invitation...");
+      await clickByTestId(page, TestId.INVITATION_ACCEPT_BUTTON);
 
-    console.log("📥 RECEIVER: Test completed successfully! Polling-based live messaging works!");
+      await page.waitForSelector(
+        `[data-testid="${TestId.INVITATION_TOAST}"]`,
+        { state: "hidden", timeout: 30000 }
+      );
+
+      console.log("📭 INVITEE: Invitation accepted!");
+      fs.writeFileSync(INVITATION_ACCEPTED_FILE, "accepted");
+
+      console.log("📭 INVITEE: Opening avatar menu to select organization...");
+      await page.waitForTimeout(2000);
+      await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
+
+      console.log("📭 INVITEE: Waiting for organization to appear in selector...");
+      const orgSelect = page.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+      await orgSelect.waitFor({ state: "visible", timeout: 30000 });
+
+      const maxWaitForOrg = 30000;
+      const startTimeForOrg = Date.now();
+      let hasOrg = false;
+      let orgSelectOptions: string[] = [];
+
+      while (Date.now() - startTimeForOrg < maxWaitForOrg) {
+        orgSelectOptions = await orgSelect.locator("option").allTextContents();
+        hasOrg = orgSelectOptions.some((opt) => opt.includes(orgName || ""));
+        if (hasOrg) {
+          break;
+        }
+        await page.waitForTimeout(500);
+      }
+
+      console.log(`📭 INVITEE: Available organizations: ${orgSelectOptions.join(", ")}`);
+
+      if (!hasOrg) {
+        throw new Error(`Organization ${orgName} not found in selector after 30s. Available: ${orgSelectOptions.join(", ")}`);
+      }
+
+      console.log(`📭 INVITEE: Found organization ${orgName}, selecting it...`);
+      await orgSelect.selectOption({ value: orgId || "" });
+
+      console.log("📭 INVITEE: Closing avatar menu...");
+      await page.keyboard.press("Escape");
+
+      console.log("📭 INVITEE: Verifying organization is selected...");
+      const tamagotchi = page.getByTestId(TestId.TAMAGOTCHI_CONTAINER);
+
+      const maxWaitForOrgSelection = 30000;
+      const startTimeForOrgSelection = Date.now();
+      let currentOrgId = await tamagotchi.getAttribute("data-organization-id");
+
+      while (Date.now() - startTimeForOrgSelection < maxWaitForOrgSelection) {
+        currentOrgId = await tamagotchi.getAttribute("data-organization-id");
+        if (currentOrgId === orgId) {
+          break;
+        }
+        await page.waitForTimeout(500);
+      }
+
+      if (currentOrgId !== orgId) {
+        throw new Error(`Organization not selected. Expected: ${orgId}, Got: ${currentOrgId}`);
+      }
+
+      console.log("📭 INVITEE: Organization verified as selected!");
+
+      console.log("📭 INVITEE: Waiting for inviter message...");
+      const inviterMessage = "Hello from inviter!";
+
+      const maxMessageWaitTime = 60000;
+      const messageStartTime = Date.now();
+
+      while (Date.now() - messageStartTime < maxMessageWaitTime) {
+        if (fs.existsSync(INVITER_MESSAGE_SENT_FILE)) {
+          break;
+        }
+        await page.waitForTimeout(100);
+      }
+
+      if (!fs.existsSync(INVITER_MESSAGE_SENT_FILE)) {
+        throw new Error("Inviter message not sent after 60s");
+      }
+
+      console.log("📭 INVITEE: Expanding message component...");
+      await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
+      await expect(page.getByTestId(TestId.MESSAGE_CHAT_CONTAINER)).toBeVisible({
+        timeout: 10000,
+      });
+
+      console.log("📭 INVITEE: Verifying message received in real-time...");
+      await page.waitForFunction(
+        ({ testId, text }) => {
+          const items = document.querySelectorAll(`[data-testid="${testId}"]`);
+          return Array.from(items).some(item => item.textContent?.includes(text));
+        },
+        { testId: TestId.MESSAGE_ITEM, text: inviterMessage },
+        { timeout: 20000 }
+      );
+
+      console.log("📭 INVITEE: Message received! Sending reply...");
+      const inviteeReplyMessage = "Hello back from invitee!";
+      await fillByTestId(page, TestId.MESSAGE_INPUT, inviteeReplyMessage);
+      await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+
+      await expect(page.getByTestId(TestId.MESSAGE_ITEM).filter({ hasText: inviteeReplyMessage })).toBeVisible({
+        timeout: 10000,
+      });
+
+      console.log("📭 INVITEE: Reply sent, signaling...");
+      fs.writeFileSync(INVITEE_MESSAGE_SENT_FILE, "sent");
+
+      console.log("📭 INVITEE: Message exchange complete!");
   });
 });
 
@@ -307,13 +448,13 @@ async function cleanupUser(email: string) {
     const organizationIds = user.member.map((m) => m.organizationId);
 
     if (organizationIds.length > 0) {
-      await prisma.message.deleteMany({
-        where: { organizationId: { in: organizationIds } },
-      });
       await prisma.tamagotchi.deleteMany({
         where: { organizationId: { in: organizationIds } },
       });
       await prisma.todo.deleteMany({
+        where: { organizationId: { in: organizationIds } },
+      });
+      await prisma.message.deleteMany({
         where: { organizationId: { in: organizationIds } },
       });
       await prisma.invitation.deleteMany({
@@ -331,7 +472,7 @@ async function cleanupUser(email: string) {
       await prisma.user.delete({
         where: { email },
       });
-    } catch (error) {
+    } catch {
     }
   }
 }
