@@ -21,6 +21,11 @@ test.describe("Live Data Test", () => {
   const INVITER_CREATED_FILE = path.join(SYNC_DIR, "inviter-created.txt");
   const INVITEE_CREATED_FILE = path.join(SYNC_DIR, "invitee-created.txt");
   const ORG_SELECTED_FILE = path.join(SYNC_DIR, "org-selected.txt");
+  const INVITEE_SENT_MESSAGE_FILE = path.join(
+    SYNC_DIR,
+    "invitee-sent-message.txt"
+  );
+  const INVITER_REPLIED_FILE = path.join(SYNC_DIR, "inviter-replied.txt");
 
   test.beforeAll(async () => {
     if (!fs.existsSync(SYNC_DIR)) {
@@ -35,6 +40,12 @@ test.describe("Live Data Test", () => {
     if (fs.existsSync(ORG_SELECTED_FILE)) {
       fs.unlinkSync(ORG_SELECTED_FILE);
     }
+    if (fs.existsSync(INVITEE_SENT_MESSAGE_FILE)) {
+      fs.unlinkSync(INVITEE_SENT_MESSAGE_FILE);
+    }
+    if (fs.existsSync(INVITER_REPLIED_FILE)) {
+      fs.unlinkSync(INVITER_REPLIED_FILE);
+    }
 
     await Promise.all([cleanupUser(inviterEmail), cleanupUser(inviteeEmail)]);
   });
@@ -48,6 +59,12 @@ test.describe("Live Data Test", () => {
     }
     if (fs.existsSync(ORG_SELECTED_FILE)) {
       fs.unlinkSync(ORG_SELECTED_FILE);
+    }
+    if (fs.existsSync(INVITEE_SENT_MESSAGE_FILE)) {
+      fs.unlinkSync(INVITEE_SENT_MESSAGE_FILE);
+    }
+    if (fs.existsSync(INVITER_REPLIED_FILE)) {
+      fs.unlinkSync(INVITER_REPLIED_FILE);
     }
     if (fs.existsSync(SYNC_DIR) && fs.readdirSync(SYNC_DIR).length === 0) {
       fs.rmdirSync(SYNC_DIR);
@@ -125,6 +142,106 @@ test.describe("Live Data Test", () => {
     }
 
     console.log("✉️ INVITER: Invitee selected organization successfully!");
+
+    console.log("✉️ INVITER: Expanding messaging component...");
+    await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
+    const messageComponent = page.getByTestId(TestId.MESSAGE_COMPONENT);
+    await expect(messageComponent).toHaveAttribute("data-state", "expanded");
+
+    console.log("✉️ INVITER: Sending first message...");
+    await fillByTestId(page, TestId.MESSAGE_INPUT, "Hello from inviter!");
+    await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+
+    console.log("✉️ INVITER: Verifying message appears in chat...");
+    const maxWaitForMessage = 20000;
+    const startTimeForMessage = Date.now();
+    let messageAppeared = false;
+
+    while (Date.now() - startTimeForMessage < maxWaitForMessage) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (messages.some((msg) => msg.includes("Hello from inviter!"))) {
+        messageAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!messageAppeared) {
+      throw new Error("Inviter's message did not appear after 20s");
+    }
+
+    console.log("✉️ INVITER: Message sent successfully!");
+
+    console.log("✉️ INVITER: Waiting for invitee to send a message...");
+    const maxWaitForInviteeMessage = 60000;
+    const startTimeForInviteeMessage = Date.now();
+
+    while (Date.now() - startTimeForInviteeMessage < maxWaitForInviteeMessage) {
+      if (fs.existsSync(INVITEE_SENT_MESSAGE_FILE)) {
+        break;
+      }
+      await page.waitForTimeout(100);
+    }
+
+    if (!fs.existsSync(INVITEE_SENT_MESSAGE_FILE)) {
+      throw new Error("Invitee did not send message after 60s");
+    }
+
+    console.log("✉️ INVITER: Waiting for invitee's message to appear...");
+    const maxWaitForInviteeMessageDisplay = 20000;
+    const startTimeForInviteeMessageDisplay = Date.now();
+    let inviteeMessageAppeared = false;
+
+    while (
+      Date.now() - startTimeForInviteeMessageDisplay <
+      maxWaitForInviteeMessageDisplay
+    ) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (
+        messages.some((msg) => msg.includes("Hi inviter, I got your message!"))
+      ) {
+        inviteeMessageAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!inviteeMessageAppeared) {
+      throw new Error("Invitee's message did not appear after 20s");
+    }
+
+    console.log("✉️ INVITER: Invitee's message received successfully!");
+
+    console.log("✉️ INVITER: Sending reply...");
+    await fillByTestId(page, TestId.MESSAGE_INPUT, "Got your message!");
+    await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+
+    console.log("✉️ INVITER: Verifying reply appears in chat...");
+    const maxWaitForReply = 20000;
+    const startTimeForReply = Date.now();
+    let replyAppeared = false;
+
+    while (Date.now() - startTimeForReply < maxWaitForReply) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (messages.some((msg) => msg.includes("Got your message!"))) {
+        replyAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!replyAppeared) {
+      throw new Error("Inviter's reply did not appear after 20s");
+    }
+
+    console.log("✉️ INVITER: Reply sent successfully, signaling invitee...");
+    fs.writeFileSync(INVITER_REPLIED_FILE, "replied");
   });
 
   test("invitee: create account, receive invitation, accept, and create todo", async ({
@@ -266,6 +383,218 @@ test.describe("Live Data Test", () => {
     console.log("📭 INVITEE: Organization verified as selected!");
     fs.writeFileSync(ORG_SELECTED_FILE, "selected");
     console.log("📭 INVITEE: Signaled organization selection to inviter!");
+
+    console.log("📭 INVITEE: Expanding messaging component...");
+    await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
+    const messageComponent = page.getByTestId(TestId.MESSAGE_COMPONENT);
+    await expect(messageComponent).toHaveAttribute("data-state", "expanded");
+
+    console.log("📭 INVITEE: Waiting for inviter's message to appear...");
+    const maxWaitForInviterMessage = 15000;
+    const startTimeForInviterMessage = Date.now();
+    let inviterMessageAppeared = false;
+
+    while (
+      Date.now() - startTimeForInviterMessage <
+      maxWaitForInviterMessage
+    ) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (messages.some((msg) => msg.includes("Hello from inviter!"))) {
+        inviterMessageAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!inviterMessageAppeared) {
+      throw new Error("Inviter's message did not appear after 15s");
+    }
+
+    console.log("📭 INVITEE: Inviter's message received successfully!");
+
+    console.log("📭 INVITEE: Verifying message has inviter's user ID...");
+    const messageItems = page.getByTestId(TestId.MESSAGE_ITEM);
+    const messageCount = await messageItems.count();
+    let foundInviterMessage = false;
+
+    for (let i = 0; i < messageCount; i++) {
+      const messageText = await messageItems
+        .nth(i)
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .textContent();
+      if (messageText?.includes("Hello from inviter!")) {
+        const userId = await messageItems.nth(i).getAttribute("data-user-id");
+        if (userId) {
+          console.log(`📭 INVITEE: Found inviter's message with user ID: ${userId}`);
+          foundInviterMessage = true;
+          break;
+        }
+      }
+    }
+
+    if (!foundInviterMessage) {
+      throw new Error("Could not verify inviter's user ID on message");
+    }
+
+    console.log("📭 INVITEE: Sending reply...");
+    await fillByTestId(
+      page,
+      TestId.MESSAGE_INPUT,
+      "Hi inviter, I got your message!"
+    );
+    await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+
+    console.log("📭 INVITEE: Verifying reply appears in chat...");
+    const maxWaitForReply = 20000;
+    const startTimeForReply = Date.now();
+    let replyAppeared = false;
+
+    while (Date.now() - startTimeForReply < maxWaitForReply) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (messages.some((msg) => msg.includes("Hi inviter, I got your message!"))) {
+        replyAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!replyAppeared) {
+      throw new Error("Invitee's reply did not appear after 20s");
+    }
+
+    console.log("📭 INVITEE: Reply sent successfully, signaling inviter...");
+    fs.writeFileSync(INVITEE_SENT_MESSAGE_FILE, "sent");
+
+    console.log("📭 INVITEE: Waiting for inviter's reply...");
+    const maxWaitForInviterReply = 60000;
+    const startTimeForInviterReply = Date.now();
+
+    while (Date.now() - startTimeForInviterReply < maxWaitForInviterReply) {
+      if (fs.existsSync(INVITER_REPLIED_FILE)) {
+        break;
+      }
+      await page.waitForTimeout(100);
+    }
+
+    if (!fs.existsSync(INVITER_REPLIED_FILE)) {
+      throw new Error("Inviter did not reply after 60s");
+    }
+
+    console.log("📭 INVITEE: Waiting for inviter's reply to appear in chat...");
+    const maxWaitForInviterReplyDisplay = 15000;
+    const startTimeForInviterReplyDisplay = Date.now();
+    let inviterReplyAppeared = false;
+
+    while (
+      Date.now() - startTimeForInviterReplyDisplay <
+      maxWaitForInviterReplyDisplay
+    ) {
+      const messages = await page
+        .getByTestId(TestId.MESSAGE_TEXT)
+        .allTextContents();
+      if (messages.some((msg) => msg.includes("Got your message!"))) {
+        inviterReplyAppeared = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!inviterReplyAppeared) {
+      throw new Error("Inviter's reply did not appear after 15s");
+    }
+
+    console.log("📭 INVITEE: Inviter's reply received successfully!");
+
+    console.log("📭 INVITEE: Switching back to personal organization...");
+    await clickByTestId(page, TestId.AVATAR_MENU_TRIGGER);
+
+    console.log("📭 INVITEE: Finding personal organization...");
+    const orgSelect2 = page.getByTestId(TestId.AVATAR_MENU_ORG_SELECT);
+    await orgSelect2.waitFor({ state: "visible", timeout: 30000 });
+
+    const allOrgOptions = await orgSelect2.locator("option").all();
+    let personalOrgId = "";
+
+    for (const option of allOrgOptions) {
+      const value = await option.getAttribute("value");
+      if (value && value !== orgId) {
+        personalOrgId = value;
+        const text = await option.textContent();
+        console.log(`📭 INVITEE: Found personal org: ${text} (${value})`);
+        break;
+      }
+    }
+
+    if (!personalOrgId) {
+      throw new Error("Could not find personal organization");
+    }
+
+    console.log("📭 INVITEE: Selecting personal organization...");
+    await orgSelect2.selectOption({ value: personalOrgId });
+
+    console.log("📭 INVITEE: Closing avatar menu...");
+    await page.keyboard.press("Escape");
+
+    console.log("📭 INVITEE: Verifying organization switch...");
+    const maxWaitForOrgSwitch = 30000;
+    const startTimeForOrgSwitch = Date.now();
+    let orgSwitched = false;
+
+    while (Date.now() - startTimeForOrgSwitch < maxWaitForOrgSwitch) {
+      const currentOrgId2 = await tamagotchi.getAttribute(
+        "data-organization-id"
+      );
+      if (currentOrgId2 === personalOrgId) {
+        orgSwitched = true;
+        break;
+      }
+      await page.waitForTimeout(500);
+    }
+
+    if (!orgSwitched) {
+      throw new Error(
+        `Organization not switched. Expected: ${personalOrgId}, Got: ${await tamagotchi.getAttribute(
+          "data-organization-id"
+        )}`
+      );
+    }
+
+    console.log("📭 INVITEE: Organization switched successfully!");
+
+    console.log(
+      "📭 INVITEE: Verifying messages from shared org are no longer visible..."
+    );
+    await page.waitForTimeout(6000);
+
+    const messagesAfterSwitch = await page
+      .getByTestId(TestId.MESSAGE_TEXT)
+      .allTextContents();
+
+    const hasInviterMessage = messagesAfterSwitch.some((msg) =>
+      msg.includes("Hello from inviter!")
+    );
+    const hasInviteeMessage = messagesAfterSwitch.some((msg) =>
+      msg.includes("Hi inviter, I got your message!")
+    );
+    const hasInviterReply = messagesAfterSwitch.some((msg) =>
+      msg.includes("Got your message!")
+    );
+
+    if (hasInviterMessage || hasInviteeMessage || hasInviterReply) {
+      throw new Error(
+        `Messages from shared org should not be visible in personal org. Found: ${messagesAfterSwitch.join(
+          ", "
+        )}`
+      );
+    }
+
+    console.log(
+      "📭 INVITEE: Confirmed messages are not visible in personal org!"
+    );
   });
 });
 

@@ -11,16 +11,18 @@ import {
   createMessageAction,
 } from "./page.actions";
 import { useMessageStore, useTodoStore } from "./page.stores";
-import { useGetUser } from "./layout.hooks";
+import { useActiveOrganizationId, useGetUser } from "./layout.hooks";
 import { useGetTamagotchi } from "./(components)/Tamagotchi.hooks";
 import { useEffect } from "react";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
+import { organization } from "@/lib/auth-client";
 
 export const useGetTodos = () => {
   const { setTodos } = useTodoStore();
+  const activeOrganizationId = useActiveOrganizationId();
 
   const query = useQuery({
-    queryKey: ["todos"],
+    queryKey: ["todos", activeOrganizationId],
     queryFn: async () => {
       conditionalLog(
         { message: "getTodosAction - start" },
@@ -191,9 +193,19 @@ export const useDeleteTodo = () => {
 
 export const useGetMessages = () => {
   const { setMessages } = useMessageStore();
+  const activeOrganizationId = useActiveOrganizationId();
+
+  conditionalLog(
+    {
+      message: "useGetMessages - activeOrganizationId",
+      activeOrganizationId,
+      queryKey: ["messages", activeOrganizationId],
+    },
+    { label: LOG_LABELS.MESSAGES }
+  );
 
   const query = useQuery({
-    queryKey: ["messages"],
+    queryKey: ["messages", activeOrganizationId],
     queryFn: async () => {
       conditionalLog(
         { message: "getMessagesAction - start" },
@@ -268,5 +280,26 @@ export const useCreateMessage = () => {
       );
       showErrorToast(error.message || "Failed to send message", "Send Failed");
     },
+  });
+};
+
+export const useTodoPermissions = () => {
+  const activeOrganizationId = useActiveOrganizationId();
+
+  return useQuery({
+    queryKey: ["todoPermissions", activeOrganizationId],
+    queryFn: async () => {
+      const hasCreate = await organization.hasPermission({
+        permissions: { todo: ["create"] },
+      });
+      const hasDelete = await organization.hasPermission({
+        permissions: { todo: ["delete"] },
+      });
+      return {
+        canCreate: hasCreate,
+        canDelete: hasDelete,
+      };
+    },
+    enabled: !!activeOrganizationId,
   });
 };

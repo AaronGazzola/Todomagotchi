@@ -4,6 +4,7 @@ import {
   useCreateTodo,
   useDeleteTodo,
   useToggleTodo,
+  useTodoPermissions,
 } from "@/app/page.hooks";
 import { useTodoStore } from "@/app/page.stores";
 import { useActiveOrganizationId } from "@/app/layout.hooks";
@@ -25,6 +26,9 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
   const activeOrganizationId = useActiveOrganizationId();
 
   const todos = useTodoStore((state) => state.todos) || [];
+  const { data: permissions } = useTodoPermissions();
+  const canCreate = permissions?.canCreate ?? false;
+  const canDelete = permissions?.canDelete ?? false;
 
   conditionalLog(
     {
@@ -33,6 +37,7 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
       activeOrganizationId,
       todosCount: todos.length,
       todos,
+      permissions,
     },
     { label: LOG_LABELS.TODOS }
   );
@@ -95,25 +100,27 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-white">Tasks</h2>
 
-        <div className="flex gap-2">
-          <Input
-            type="text"
-            placeholder="Add a new task..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isCreating}
-            data-testid={TestId.TODO_INPUT}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleAddTodo}
-            data-testid={TestId.TODO_ADD_BUTTON}
-            disabled={inputValue.trim().length < 1 || isCreating}
-          >
-            {isCreating ? "Adding..." : "Add"}
-          </Button>
-        </div>
+        {canCreate && (
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Add a new task..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={isCreating}
+              data-testid={TestId.TODO_INPUT}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleAddTodo}
+              data-testid={TestId.TODO_ADD_BUTTON}
+              disabled={inputValue.trim().length < 1 || isCreating}
+            >
+              {isCreating ? "Adding..." : "Add"}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -156,30 +163,32 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
                 >
                   {todo.text}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteTodo(todo.id)}
-                  data-testid={`${TestId.TODO_DELETE_BUTTON}-${todo.id}`}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label={`Delete "${todo.text}"`}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteTodo(todo.id)}
+                    data-testid={`${TestId.TODO_DELETE_BUTTON}-${todo.id}`}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label={`Delete "${todo.text}"`}
                   >
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  </svg>
-                </Button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                    </svg>
+                  </Button>
+                )}
               </div>
             )
           )

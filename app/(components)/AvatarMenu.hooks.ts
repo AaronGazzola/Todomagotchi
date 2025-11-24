@@ -21,11 +21,12 @@ import { OrganizationWithTamagotchi } from "@/app/layout.types";
 import { getUserWithAllDataAction } from "@/app/layout.actions";
 import { getTodosAction } from "@/app/page.actions";
 import { getTamagotchiAction } from "./Tamagotchi.actions";
-import { useTodoStore } from "@/app/page.stores";
+import { useMessageStore, useTodoStore } from "@/app/page.stores";
 
 
 export const useSetActiveOrganization = () => {
   const queryClient = useQueryClient();
+  const { reset: resetMessages } = useMessageStore();
 
   return useMutation({
     mutationFn: async (organizationId: string) => {
@@ -33,6 +34,7 @@ export const useSetActiveOrganization = () => {
       return organizationId;
     },
     onSuccess: () => {
+      resetMessages();
       queryClient.invalidateQueries({ queryKey: ["user-with-all-data"] });
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });

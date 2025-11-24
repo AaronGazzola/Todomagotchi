@@ -5,6 +5,8 @@ import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { Message, Todo } from "@prisma/client";
 import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
   try {
@@ -16,17 +18,15 @@ export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
 
     const activeOrganizationId = session.session.activeOrganizationId;
 
-    if (!activeOrganizationId) {
-      throw new Error("No active organization");
-    }
-
     conditionalLog(
       { message: "getTodosAction - activeOrganizationId", activeOrganizationId },
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
 
     const todos = await db.todo.findMany({
-      where: { organizationId: activeOrganizationId },
+      where: activeOrganizationId
+        ? { organizationId: activeOrganizationId }
+        : {},
       orderBy: { createdAt: "desc" },
     });
 
@@ -52,6 +52,20 @@ export const createTodoAction = async (
       { message: "createTodoAction - start", text },
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
+
+    const hasPermission = await auth.api.hasPermission({
+      headers: await headers(),
+      body: {
+        permissions: {
+          todo: ["create"],
+        },
+      },
+    });
+
+    if (!hasPermission) {
+      throw new Error("Insufficient permissions to create todos");
+    }
+
     const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session.session.activeOrganizationId;
@@ -92,6 +106,20 @@ export const toggleTodoAction = async (
       { message: "toggleTodoAction - start", id },
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
+
+    const hasPermission = await auth.api.hasPermission({
+      headers: await headers(),
+      body: {
+        permissions: {
+          todo: ["update"],
+        },
+      },
+    });
+
+    if (!hasPermission) {
+      throw new Error("Insufficient permissions to update todos");
+    }
+
     const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session.session.activeOrganizationId;
@@ -148,6 +176,20 @@ export const deleteTodoAction = async (
       { message: "deleteTodoAction - start", id },
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
+
+    const hasPermission = await auth.api.hasPermission({
+      headers: await headers(),
+      body: {
+        permissions: {
+          todo: ["delete"],
+        },
+      },
+    });
+
+    if (!hasPermission) {
+      throw new Error("Insufficient permissions to delete todos");
+    }
+
     const { db, session } = await getAuthenticatedClient();
 
     const activeOrganizationId = session.session.activeOrganizationId;
@@ -195,17 +237,15 @@ export const getMessagesAction = async (): Promise<
 
     const activeOrganizationId = session.session.activeOrganizationId;
 
-    if (!activeOrganizationId) {
-      throw new Error("No active organization");
-    }
-
     conditionalLog(
       { message: "getMessagesAction - activeOrganizationId", activeOrganizationId },
       { label: LOG_LABELS.MESSAGES }
     );
 
     const messages = await db.message.findMany({
-      where: { organizationId: activeOrganizationId },
+      where: activeOrganizationId
+        ? { organizationId: activeOrganizationId }
+        : {},
       orderBy: { createdAt: "asc" },
     });
 

@@ -36,3 +36,12 @@ The commands and numbers below are shorthand references to the corresponding pro
 17. `_roadmap_phase`: "Continue to follow the roadmap. After completing a phase, update the roadmap to document the completed and remaining tasks and push a commit"
 
 18. `_roadmap_review`: "Review this repo and the latest roadmap ("docs/roadmap[date].md"). If the app and the roadmap deviate, then make a plan to make the app more aligned with the roadmap"
+
+19. `test_docs`: "refer to the following docs to understand how to write tests: @docs/Testing/Database_Testing.md
+    @docs/Testing/Core_Rules.md
+    @docs/Testing/README.md
+    @docs/Testing/Reporters_and_Reports.md
+    @docs/Testing/Test_attribute_index.md
+    @docs/Testing/Test_Execution_and_Configuration.md
+    @docs/Testing/Test_Logging_and_Diagnostics.md
+    @docs/Testing/Writing_Tests.md"
