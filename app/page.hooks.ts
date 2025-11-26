@@ -19,10 +19,9 @@ import { organization } from "@/lib/auth-client";
 
 export const useGetTodos = () => {
   const { setTodos } = useTodoStore();
-  const activeOrganizationId = useActiveOrganizationId();
 
   const query = useQuery({
-    queryKey: ["todos", activeOrganizationId],
+    queryKey: ["todos"],
     queryFn: async () => {
       conditionalLog(
         { message: "getTodosAction - start" },
@@ -193,19 +192,17 @@ export const useDeleteTodo = () => {
 
 export const useGetMessages = () => {
   const { setMessages } = useMessageStore();
-  const activeOrganizationId = useActiveOrganizationId();
 
   conditionalLog(
     {
-      message: "useGetMessages - activeOrganizationId",
-      activeOrganizationId,
-      queryKey: ["messages", activeOrganizationId],
+      message: "useGetMessages - queryKey",
+      queryKey: ["messages"],
     },
     { label: LOG_LABELS.MESSAGES }
   );
 
   const query = useQuery({
-    queryKey: ["messages", activeOrganizationId],
+    queryKey: ["messages"],
     queryFn: async () => {
       conditionalLog(
         { message: "getMessagesAction - start" },

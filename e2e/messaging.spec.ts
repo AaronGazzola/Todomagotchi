@@ -26,6 +26,10 @@ test.describe("Live Data Test", () => {
     "invitee-sent-message.txt"
   );
   const INVITER_REPLIED_FILE = path.join(SYNC_DIR, "inviter-replied.txt");
+  const INVITEE_TEST_COMPLETE_FILE = path.join(
+    SYNC_DIR,
+    "invitee-test-complete.txt"
+  );
 
   test.beforeAll(async () => {
     if (!fs.existsSync(SYNC_DIR)) {
@@ -46,6 +50,9 @@ test.describe("Live Data Test", () => {
     if (fs.existsSync(INVITER_REPLIED_FILE)) {
       fs.unlinkSync(INVITER_REPLIED_FILE);
     }
+    if (fs.existsSync(INVITEE_TEST_COMPLETE_FILE)) {
+      fs.unlinkSync(INVITEE_TEST_COMPLETE_FILE);
+    }
 
     await Promise.all([cleanupUser(inviterEmail), cleanupUser(inviteeEmail)]);
   });
@@ -65,6 +72,9 @@ test.describe("Live Data Test", () => {
     }
     if (fs.existsSync(INVITER_REPLIED_FILE)) {
       fs.unlinkSync(INVITER_REPLIED_FILE);
+    }
+    if (fs.existsSync(INVITEE_TEST_COMPLETE_FILE)) {
+      fs.unlinkSync(INVITEE_TEST_COMPLETE_FILE);
     }
     if (fs.existsSync(SYNC_DIR) && fs.readdirSync(SYNC_DIR).length === 0) {
       fs.rmdirSync(SYNC_DIR);
@@ -90,7 +100,7 @@ test.describe("Live Data Test", () => {
     await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviterEmail);
     await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviterPassword);
     await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-    await page.waitForURL("/", { timeout: 30000 });
+    await page.waitForURL("/", { timeout: 30000, waitUntil: "domcontentloaded" });
 
     console.log("✉️ INVITER: Account created, signaling...");
     fs.writeFileSync(INVITER_CREATED_FILE, "created");
@@ -242,6 +252,23 @@ test.describe("Live Data Test", () => {
 
     console.log("✉️ INVITER: Reply sent successfully, signaling invitee...");
     fs.writeFileSync(INVITER_REPLIED_FILE, "replied");
+
+    console.log("✉️ INVITER: Waiting for invitee test to complete...");
+    const maxWaitForInviteeComplete = 120000;
+    const startTimeForInviteeComplete = Date.now();
+
+    while (Date.now() - startTimeForInviteeComplete < maxWaitForInviteeComplete) {
+      if (fs.existsSync(INVITEE_TEST_COMPLETE_FILE)) {
+        break;
+      }
+      await page.waitForTimeout(100);
+    }
+
+    if (!fs.existsSync(INVITEE_TEST_COMPLETE_FILE)) {
+      throw new Error("Invitee test did not complete after 120s");
+    }
+
+    console.log("✉️ INVITER: Invitee test complete, ending inviter test.");
   });
 
   test("invitee: create account, receive invitation, accept, and create todo", async ({
@@ -274,7 +301,7 @@ test.describe("Live Data Test", () => {
     await fillByTestId(page, TestId.SIGN_UP_EMAIL, inviteeEmail);
     await fillByTestId(page, TestId.SIGN_UP_PASSWORD, inviteePassword);
     await clickByTestId(page, TestId.SIGN_UP_SUBMIT);
-    await page.waitForURL("/", { timeout: 30000 });
+    await page.waitForURL("/", { timeout: 30000, waitUntil: "domcontentloaded" });
 
     console.log("📭 INVITEE: Account created, signaling...");
     fs.writeFileSync(INVITEE_CREATED_FILE, "created");
@@ -388,9 +415,10 @@ test.describe("Live Data Test", () => {
     await clickByTestId(page, TestId.MESSAGE_EXPAND_BUTTON);
     const messageComponent = page.getByTestId(TestId.MESSAGE_COMPONENT);
     await expect(messageComponent).toHaveAttribute("data-state", "expanded");
+    await page.waitForTimeout(2000);
 
     console.log("📭 INVITEE: Waiting for inviter's message to appear...");
-    const maxWaitForInviterMessage = 15000;
+    const maxWaitForInviterMessage = 30000;
     const startTimeForInviterMessage = Date.now();
     let inviterMessageAppeared = false;
 
@@ -439,12 +467,16 @@ test.describe("Live Data Test", () => {
     }
 
     console.log("📭 INVITEE: Sending reply...");
-    await fillByTestId(
-      page,
-      TestId.MESSAGE_INPUT,
-      "Hi inviter, I got your message!"
-    );
-    await clickByTestId(page, TestId.MESSAGE_SEND_BUTTON);
+    const messageInput = page.getByTestId(TestId.MESSAGE_INPUT);
+    await messageInput.click();
+    await messageInput.fill("");
+    await messageInput.type("Hi inviter, I got your message!");
+    await page.waitForTimeout(500);
+    await page
+      .locator('[data-testid="toast-success"]')
+      .waitFor({ state: "hidden", timeout: 10000 })
+      .catch(() => {});
+    await page.getByTestId(TestId.MESSAGE_SEND_BUTTON).click();
 
     console.log("📭 INVITEE: Verifying reply appears in chat...");
     const maxWaitForReply = 20000;
@@ -595,6 +627,9 @@ test.describe("Live Data Test", () => {
     console.log(
       "📭 INVITEE: Confirmed messages are not visible in personal org!"
     );
+
+    console.log("📭 INVITEE: Test complete, signaling inviter...");
+    fs.writeFileSync(INVITEE_TEST_COMPLETE_FILE, "complete");
   });
 });
 

@@ -104,7 +104,7 @@ export const useSignOut = () => {
 
 export const useActiveOrganizationId = () => {
   const { data: session } = useSession();
-  return session?.session?.activeOrganizationId || [];
+  return session?.session?.activeOrganizationId || null;
 };
 
 export const useActiveOrganization = () => {

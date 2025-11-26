@@ -14,6 +14,7 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "seed": "prisma migrate reset",
+    "test": "npm run test:unit && npm run test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:trace": "TEST_TRACE=true playwright test",

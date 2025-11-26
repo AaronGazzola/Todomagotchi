@@ -100,6 +100,10 @@ test.describe("Live Data Test", () => {
 
       console.log("✉️ INVITER: Sending invitation...");
       await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, inviteeEmail);
+
+      const roleSelect = page.getByTestId(TestId.INVITE_ROLE_SELECT);
+      await roleSelect.selectOption({ value: "admin" });
+
       await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
 
       await page.waitForSelector('[data-testid="toast-success"]', {
