@@ -6,6 +6,7 @@ import {
 } from "./page.actions";
 import { auth } from "@/lib/auth";
 import { getAuthenticatedClient } from "@/lib/auth.utils";
+import { getActorContext, createHistoryEntry } from "@/lib/history.utils";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -27,6 +28,11 @@ vi.mock("./(components)/Tamagotchi.actions", () => ({
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(() => Promise.resolve(new Headers())),
+}));
+
+vi.mock("@/lib/history.utils", () => ({
+  getActorContext: vi.fn(),
+  createHistoryEntry: vi.fn(),
 }));
 
 const generateTestRunId = (): string => {
@@ -112,6 +118,12 @@ describe("Todo Actions - Permission Tests", () => {
       db: mockDb as any,
       session: mockSession as any,
     });
+    vi.mocked(getActorContext).mockResolvedValue({
+      actorId: "user-123",
+      actorName: "Test User",
+      actorRole: "owner",
+    });
+    vi.mocked(createHistoryEntry).mockResolvedValue({} as any);
 
     (context as any).testStartTime = Date.now();
   });

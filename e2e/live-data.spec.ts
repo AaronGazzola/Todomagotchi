@@ -150,6 +150,44 @@ test.describe("Live Data Test", () => {
       }
 
       console.log(`✉️ INVITER: Tamagotchi age verified: ${age}`);
+
+      console.log("✉️ INVITER: Waiting for history polling (10s refetch interval + buffer)...");
+      await page.waitForTimeout(13000);
+
+      console.log("✉️ INVITER: Verifying history updates...");
+      const historyContainer = page.getByTestId(TestId.HISTORY_CONTAINER);
+      await expect(historyContainer).toBeVisible({ timeout: 30000 });
+
+      const historyItems = page.getByTestId(TestId.HISTORY_ITEM);
+      const maxWaitForHistory = 30000;
+      const startTimeForHistory = Date.now();
+      let historyCount = 0;
+
+      while (Date.now() - startTimeForHistory < maxWaitForHistory) {
+        historyCount = await historyItems.count();
+        if (historyCount >= 2) break;
+        await page.waitForTimeout(500);
+      }
+
+      if (historyCount < 2) {
+        throw new Error(`Expected at least 2 history items, got ${historyCount}`);
+      }
+
+      const firstItem = historyItems.nth(0);
+      const secondItem = historyItems.nth(1);
+
+      const firstType = await firstItem.getAttribute("data-interaction-type");
+      const secondType = await secondItem.getAttribute("data-interaction-type");
+
+      if (firstType !== "tamagotchi_fed") {
+        throw new Error(`Expected first history item to be tamagotchi_fed, got ${firstType}`);
+      }
+
+      if (secondType !== "todo_created") {
+        throw new Error(`Expected second history item to be todo_created, got ${secondType}`);
+      }
+
+      console.log("✉️ INVITER: History verified with correct order - tamagotchi_fed (newest) then todo_created!");
       console.log("✉️ INVITER: Polling-based live data updates working successfully!");
   });
 
@@ -257,18 +295,23 @@ test.describe("Live Data Test", () => {
       console.log(`📭 INVITEE: Found organization ${orgName}, selecting it...`);
       await orgSelect.selectOption({ value: orgId || "" });
 
+      await page.waitForSelector('[data-testid="toast-success"]', {
+        state: "visible",
+        timeout: 30000,
+      });
+
       console.log("📭 INVITEE: Closing avatar menu...");
       await page.keyboard.press("Escape");
 
-      console.log("📭 INVITEE: Verifying organization is selected...");
-      const tamagotchi = page.getByTestId(TestId.TAMAGOTCHI_CONTAINER);
+      console.log("📭 INVITEE: Verifying organization is selected via TodoList...");
+      const todoList = page.getByTestId(TestId.TODO_LIST);
 
       const maxWaitForOrgSelection = 30000;
       const startTimeForOrgSelection = Date.now();
-      let currentOrgId = await tamagotchi.getAttribute("data-organization-id");
+      let currentOrgId = await todoList.getAttribute("data-organization-id");
 
       while (Date.now() - startTimeForOrgSelection < maxWaitForOrgSelection) {
-        currentOrgId = await tamagotchi.getAttribute("data-organization-id");
+        currentOrgId = await todoList.getAttribute("data-organization-id");
         if (currentOrgId === orgId) {
           break;
         }
@@ -276,12 +319,13 @@ test.describe("Live Data Test", () => {
       }
 
       if (currentOrgId !== orgId) {
-        throw new Error(`Organization not selected. Expected: ${orgId}, Got: ${currentOrgId}`);
+        throw new Error(`TodoList organization not updated. Expected: ${orgId}, Got: ${currentOrgId}`);
       }
 
-      console.log("📭 INVITEE: Organization verified as selected!");
+      console.log("📭 INVITEE: TodoList organization verified as selected!");
 
       console.log("📭 INVITEE: Verifying organization-specific Tamagotchi data is present...");
+      const tamagotchi = page.getByTestId(TestId.TAMAGOTCHI_CONTAINER);
       const maxWaitForTamagotchiData = 30000;
       const startTimeForTamagotchiData = Date.now();
       let tamagotchiAge = await tamagotchi.getAttribute("data-age");
@@ -304,7 +348,12 @@ test.describe("Live Data Test", () => {
       await fillByTestId(page, TestId.TODO_INPUT, "Test todo from invitee");
       await clickByTestId(page, TestId.TODO_ADD_BUTTON);
 
-      await page.waitForTimeout(2000);
+      await page.waitForSelector('[data-testid="toast-success"]', {
+        state: "visible",
+        timeout: 30000,
+      });
+
+      console.log("📭 INVITEE: Todo creation confirmed via toast");
 
       const todoItem = await waitForElement(page, TestId.TODO_ITEM, 30000);
 
@@ -313,6 +362,21 @@ test.describe("Live Data Test", () => {
       }
 
       console.log("📭 INVITEE: Todo created successfully!");
+
+      console.log("📭 INVITEE: Verifying history updates for created todo...");
+      await page.waitForTimeout(13000);
+
+      const historyContainer = page.getByTestId(TestId.HISTORY_CONTAINER);
+      await expect(historyContainer).toBeVisible({ timeout: 30000 });
+
+      const historyItems = page.getByTestId(TestId.HISTORY_ITEM);
+      const inviteeHistoryCount = await historyItems.count();
+
+      if (inviteeHistoryCount < 2) {
+        throw new Error(`Expected at least 2 history items for invitee, got ${inviteeHistoryCount}`);
+      }
+
+      console.log(`📭 INVITEE: History verified with ${inviteeHistoryCount} items!`);
 
       fs.writeFileSync(TODO_CREATED_FILE, "created");
 
@@ -334,6 +398,9 @@ async function cleanupUser(email: string) {
     const organizationIds = user.member.map((m) => m.organizationId);
 
     if (organizationIds.length > 0) {
+      await prisma.history.deleteMany({
+        where: { organizationId: { in: organizationIds } },
+      });
       await prisma.tamagotchi.deleteMany({
         where: { organizationId: { in: organizationIds } },
       });

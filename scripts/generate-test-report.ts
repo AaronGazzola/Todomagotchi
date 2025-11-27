@@ -28,8 +28,8 @@ function parseTestsFromDocsFile(): TestSuite[] {
   const lines = indexSection.split("\n");
 
   for (const line of lines) {
-    const matchSpec = line.match(/\[([^\]]+)\].*\]\(([^\)]+\.spec\.ts)\)/);
-    const matchTest = line.match(/\[([^\]]+)\].*\]\(([^\)]+\.test\.ts)\)/);
+    const matchSpec = line.match(/\[([^\]]+)\]\(([^\)]+\.spec\.ts)\)/);
+    const matchTest = line.match(/\[([^\]]+)\]\(([^\)]+\.test\.ts)\)/);
     const match = matchSpec || matchTest;
 
     if (match) {
@@ -43,6 +43,7 @@ function parseTestsFromDocsFile(): TestSuite[] {
     }
   }
 
+  console.log(`[DEBUG] Parsed ${testSuites.length} test suites: ${testSuites.map(s => s.fileName).join(', ')}`);
   return testSuites;
 }
 
@@ -54,6 +55,7 @@ function findLatestTestResultDir(fileName: string): string | null {
   }
 
   const pattern = fileName.replace(/\.(spec|test)\.ts$/, "");
+  const searchPattern = fileName.includes("page.actions.test.ts") ? "unit" : pattern;
   const timestampedDirPattern = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}_/;
 
   const dirs = fs
@@ -62,13 +64,14 @@ function findLatestTestResultDir(fileName: string): string | null {
       const dirPath = path.join(testResultsDir, dir);
       return (
         fs.statSync(dirPath).isDirectory() &&
-        dir.includes(pattern) &&
+        dir.includes(searchPattern) &&
         timestampedDirPattern.test(dir)
       );
     })
     .sort()
     .reverse();
 
+  console.log(`[DEBUG] findLatestTestResultDir("${fileName}"): pattern="${pattern}" -> ${dirs[0] || 'not found'}`);
   return dirs.length > 0 ? path.join(testResultsDir, dirs[0]) : null;
 }
 

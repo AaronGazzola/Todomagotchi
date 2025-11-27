@@ -101,6 +101,7 @@ export const useCreateTodo = () => {
       );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
       showSuccessToast("Todo created");
     },
     onError: (error: Error) => {
@@ -142,6 +143,7 @@ export const useToggleTodo = () => {
       );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
     },
     onError: (error: Error) => {
       conditionalLog(
@@ -178,6 +180,7 @@ export const useDeleteTodo = () => {
         { label: LOG_LABELS.TODOS_HOOKS }
       );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
       showSuccessToast("Todo deleted");
     },
     onError: (error: Error) => {

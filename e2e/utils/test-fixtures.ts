@@ -89,6 +89,15 @@ export const test = base.extend<{
         body: JSON.stringify(diagnostics, null, 2),
         contentType: "application/json",
       });
+
+      try {
+        const htmlContent = await page.content();
+        await testInfo.attach("dom-snapshot.html", {
+          body: htmlContent,
+          contentType: "text/html",
+        });
+      } catch (e) {
+      }
     }
   },
 });

@@ -169,3 +169,19 @@ model Message {
   @@index([organizationId])
   @@index([createdAt])
 }
+
+model History {
+  id              String   @id @default(cuid())
+  organizationId  String
+  interactionType String
+  entityType      String
+  entityId        String?
+  actorId         String
+  actorName       String
+  actorRole       String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  @@schema("public")
+  @@index([organizationId, createdAt])
+}

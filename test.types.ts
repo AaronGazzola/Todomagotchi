@@ -63,4 +63,11 @@ export enum TestId {
   MESSAGE_TEXT = "message-text",
   MESSAGE_TIMESTAMP = "message-timestamp",
   MESSAGE_EMPTY_STATE = "message-empty-state",
+  HISTORY_CONTAINER = "history-container",
+  HISTORY_ITEM = "history-item",
+  HISTORY_ACTION = "history-action",
+  HISTORY_TIMESTAMP = "history-timestamp",
+  HISTORY_USER = "history-user",
+  HISTORY_EMPTY_STATE = "history-empty-state",
+  HISTORY_LOADING_MORE = "history-loading-more",
 }
