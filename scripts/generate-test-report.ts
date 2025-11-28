@@ -34,7 +34,10 @@ function parseTestsFromDocsFile(): TestSuite[] {
 
     if (match) {
       const name = match[1];
-      const fileName = match[2].replace("e2e/", "").replace("__tests__/", "").replace("app/", "");
+      const fileName = match[2]
+        .replace("e2e/", "")
+        .replace("__tests__/", "")
+        .replace("app/", "");
 
       const commandMatch = line.match(/`(npm run [^`]+)`/);
       const command = commandMatch ? commandMatch[1] : "";
@@ -43,6 +46,11 @@ function parseTestsFromDocsFile(): TestSuite[] {
     }
   }
 
+  console.log(
+    `[DEBUG] Parsed ${testSuites.length} test suites: ${testSuites
+      .map((s) => s.fileName)
+      .join(", ")}`
+  );
   return testSuites;
 }
 
@@ -61,7 +69,10 @@ function findLatestTestResultDir(fileName: string): string | null {
     .readdirSync(testResultsDir)
     .filter((dir) => {
       const dirPath = path.join(testResultsDir, dir);
-      if (!fs.statSync(dirPath).isDirectory() || !timestampedDirPattern.test(dir)) {
+      if (
+        !fs.statSync(dirPath).isDirectory() ||
+        !timestampedDirPattern.test(dir)
+      ) {
         return false;
       }
       const readmePath = path.join(dirPath, "README.md");
@@ -77,6 +88,11 @@ function findLatestTestResultDir(fileName: string): string | null {
     .sort()
     .reverse();
 
+  console.log(
+    `[DEBUG] findLatestTestResultDir("${fileName}"): pattern="${pattern}" -> ${
+      dirs[0] || "not found"
+    }`
+  );
   return dirs.length > 0 ? path.join(testResultsDir, dirs[0]) : null;
 }
 
@@ -127,7 +143,9 @@ function findJestTestResults(testSuiteName: string): {
 
   const files = fs
     .readdirSync(testResultsDir)
-    .filter((file) => file.startsWith("afterall-call-") && file.endsWith(".json"));
+    .filter(
+      (file) => file.startsWith("afterall-call-") && file.endsWith(".json")
+    );
 
   if (files.length === 0) {
     return null;
@@ -153,7 +171,9 @@ function findJestTestResults(testSuiteName: string): {
     return null;
   }
 
-  resultsForSuite.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  resultsForSuite.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
   const latestResult = resultsForSuite[0];
 
   const allTests: JestTestResult[] = [];
@@ -161,7 +181,10 @@ function findJestTestResults(testSuiteName: string): {
   let totalFailed = 0;
 
   for (const result of resultsForSuite) {
-    if (new Date(result.timestamp).getTime() === new Date(latestResult.timestamp).getTime()) {
+    if (
+      new Date(result.timestamp).getTime() ===
+      new Date(latestResult.timestamp).getTime()
+    ) {
       allTests.push(...result.tests);
       totalPassed += result.stats.passed;
       totalFailed += result.stats.failed;
@@ -213,10 +236,14 @@ function cleanupOldTestResults(): CleanupStats {
     return stats;
   }
 
-  const timestampedDirPattern = /^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3})_(.+)$/;
+  const timestampedDirPattern =
+    /^(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3})_(.+)$/;
   const allEntries = fs.readdirSync(testResultsDir);
 
-  const testGroups = new Map<string, Array<{ fullName: string; timestamp: string }>>();
+  const testGroups = new Map<
+    string,
+    Array<{ fullName: string; timestamp: string }>
+  >();
 
   for (const entry of allEntries) {
     const match = entry.match(timestampedDirPattern);
@@ -264,7 +291,10 @@ function cleanupOldTestResults(): CleanupStats {
       let shouldKeep = false;
 
       for (const testName of remainingTestSuites) {
-        if (testName.includes(testSuiteName) || testSuiteName.includes(testName)) {
+        if (
+          testName.includes(testSuiteName) ||
+          testSuiteName.includes(testName)
+        ) {
           shouldKeep = true;
           break;
         }
@@ -292,8 +322,9 @@ function cleanupOldTestReports(stats: CleanupStats): void {
   }
 
   const reportPattern = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}\.md$/;
-  const allReports = fs.readdirSync(reportsDir)
-    .filter(file => reportPattern.test(file))
+  const allReports = fs
+    .readdirSync(reportsDir)
+    .filter((file) => reportPattern.test(file))
     .sort()
     .reverse();
 
@@ -399,8 +430,12 @@ function generateConsolidatedReport(): void {
             /- ✅ \*\*Passed:\*\* (\d+)\/(\d+)\n- ❌ \*\*Failed:\*\* (\d+)\/\d+\n- ⏭️ \*\*Skipped:\*\* (\d+)\/\d+/
           );
 
-          let passed = 0, failed = 0, skipped = 0, total = 0;
-          const summaryMatch = oldFormatMatch || newFormatMatch || unitFormatMatch;
+          let passed = 0,
+            failed = 0,
+            skipped = 0,
+            total = 0;
+          const summaryMatch =
+            oldFormatMatch || newFormatMatch || unitFormatMatch;
           if (summaryMatch) {
             if (oldFormatMatch) {
               passed = parseInt(summaryMatch[1]);
@@ -493,7 +528,9 @@ function generateConsolidatedReport(): void {
     `- **Passed:** ${totalPassed} ✅\n` +
     `- **Failed:** ${totalFailed} ❌\n` +
     `- **Skipped:** ${totalSkipped} ⏭️\n` +
-    `- **Success Rate:** ${totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(2) : 0}%\n\n` +
+    `- **Success Rate:** ${
+      totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(2) : 0
+    }%\n\n` +
     `---\n\n`;
 
   reportContent = summarySection + summaryContent + reportContent;
@@ -512,7 +549,11 @@ function generateConsolidatedReport(): void {
   console.log(`  Passed: ${totalPassed} ✅`);
   console.log(`  Failed: ${totalFailed} ❌`);
   console.log(`  Skipped: ${totalSkipped} ⏭️`);
-  console.log(`  Success Rate: ${totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(2) : 0}%\n`);
+  console.log(
+    `  Success Rate: ${
+      totalTests > 0 ? ((totalPassed / totalTests) * 100).toFixed(2) : 0
+    }%\n`
+  );
 }
 
 function main() {
@@ -529,7 +570,9 @@ function main() {
     const sizeMB = (cleanupStats.totalSizeFreed / (1024 * 1024)).toFixed(2);
 
     console.log("✅ Cleanup complete:");
-    console.log(`  Test directories deleted: ${cleanupStats.directoriesDeleted}`);
+    console.log(
+      `  Test directories deleted: ${cleanupStats.directoriesDeleted}`
+    );
     console.log(`  JSON files deleted: ${cleanupStats.jsonFilesDeleted}`);
     console.log(`  Report files deleted: ${cleanupStats.reportFilesDeleted}`);
     console.log(`  Space freed: ${sizeMB} MB\n`);

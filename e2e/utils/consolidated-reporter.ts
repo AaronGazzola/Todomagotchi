@@ -198,6 +198,13 @@ export default class SummaryReporter implements Reporter {
             } catch (err) {
             }
           }
+
+          if (fileName === 'dom-snapshot.html') {
+            try {
+              domSnapshot = fs.readFileSync(attachment.path, 'utf-8');
+            } catch (err) {
+            }
+          }
         } catch (err) {
         }
       }
@@ -492,12 +499,21 @@ export default class SummaryReporter implements Reporter {
 
         if (test.domSnapshot) {
           readme += `**DOM State at Failure:**\n\n`;
-          const snapshotLines = test.domSnapshot.split('\n');
-          const contentStart = snapshotLines.findIndex(line => line.includes('```'));
-          if (contentStart >= 0) {
-            readme += snapshotLines.slice(contentStart).join('\n');
+          const isHtml = test.domSnapshot.trim().startsWith('<!') || test.domSnapshot.trim().startsWith('<html');
+          if (isHtml) {
+            const maxLength = 50000;
+            const truncated = test.domSnapshot.length > maxLength
+              ? test.domSnapshot.substring(0, maxLength) + '\n<!-- ... truncated ... -->'
+              : test.domSnapshot;
+            readme += `\`\`\`html\n${truncated}\n\`\`\`\n`;
           } else {
-            readme += `\`\`\`\n${test.domSnapshot}\n\`\`\`\n`;
+            const snapshotLines = test.domSnapshot.split('\n');
+            const contentStart = snapshotLines.findIndex(line => line.includes('```'));
+            if (contentStart >= 0) {
+              readme += snapshotLines.slice(contentStart).join('\n');
+            } else {
+              readme += `\`\`\`\n${test.domSnapshot}\n\`\`\`\n`;
+            }
           }
           readme += `\n`;
         }

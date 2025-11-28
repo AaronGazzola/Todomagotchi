@@ -5,6 +5,12 @@ import { getAuthenticatedClient } from "@/lib/auth.utils";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 import { createRLSClient } from "@/lib/prisma-rls";
 import { Tamagotchi } from "@prisma/client";
+import {
+  ActorContext,
+  createHistoryEntry,
+  getActorContext,
+} from "@/lib/history.utils";
+import { TAMAGOTCHI_INTERACTIONS } from "./History.types";
 
 export const getTamagotchiAction = async (): Promise<
   ActionResponse<Tamagotchi | null>
@@ -90,7 +96,8 @@ const getRandomColor = (): string => {
 
 export const feedTamagotchiHelper = async (
   db: ReturnType<typeof createRLSClient>,
-  activeOrganizationId: string
+  activeOrganizationId: string,
+  actorContext?: ActorContext
 ): Promise<Tamagotchi> => {
   const tamagotchi = await db.tamagotchi.findUnique({
     where: { organizationId: activeOrganizationId },
@@ -132,6 +139,30 @@ export const feedTamagotchiHelper = async (
     },
   });
 
+  if (actorContext) {
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: TAMAGOTCHI_INTERACTIONS.TAMAGOTCHI_FED,
+      entityType: "tamagotchi",
+      entityId: tamagotchi.id,
+      actorContext,
+      metadata: {
+        hungerBefore: tamagotchi.hunger,
+        hungerAfter: newHunger,
+        feedCount: resetFeedCount,
+        ageChange:
+          newAge !== tamagotchi.age
+            ? { from: tamagotchi.age, to: newAge }
+            : undefined,
+        speciesChange:
+          newSpecies !== tamagotchi.species
+            ? { from: tamagotchi.species, to: newSpecies }
+            : undefined,
+      },
+    });
+  }
+
   return updatedTamagotchi;
 };
 
@@ -159,9 +190,18 @@ export const feedTamagotchiAction = async (): Promise<
       { label: LOG_LABELS.TAMAGOTCHI_ACTIONS }
     );
 
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
     const updatedTamagotchi = await feedTamagotchiHelper(
       db,
-      activeOrganizationId
+      activeOrganizationId,
+      actorContext
     );
 
     conditionalLog(
@@ -276,9 +316,38 @@ export const updateTamagotchiSpeciesAction = async (
       throw new Error("No active organization");
     }
 
+    const tamagotchi = await db.tamagotchi.findUnique({
+      where: { organizationId: activeOrganizationId },
+    });
+
+    if (!tamagotchi) {
+      throw new Error("Tamagotchi not found");
+    }
+
     const updatedTamagotchi = await db.tamagotchi.update({
       where: { organizationId: activeOrganizationId },
       data: { species },
+    });
+
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: TAMAGOTCHI_INTERACTIONS.TAMAGOTCHI_SPECIES_CHANGED,
+      entityType: "tamagotchi",
+      entityId: tamagotchi.id,
+      actorContext,
+      metadata: {
+        previousSpecies: tamagotchi.species,
+        newSpecies: species,
+      },
     });
 
     conditionalLog(
@@ -312,9 +381,38 @@ export const updateTamagotchiAgeAction = async (
       throw new Error("No active organization");
     }
 
+    const tamagotchi = await db.tamagotchi.findUnique({
+      where: { organizationId: activeOrganizationId },
+    });
+
+    if (!tamagotchi) {
+      throw new Error("Tamagotchi not found");
+    }
+
     const updatedTamagotchi = await db.tamagotchi.update({
       where: { organizationId: activeOrganizationId },
       data: { age },
+    });
+
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: TAMAGOTCHI_INTERACTIONS.TAMAGOTCHI_AGE_CHANGED,
+      entityType: "tamagotchi",
+      entityId: tamagotchi.id,
+      actorContext,
+      metadata: {
+        previousAge: tamagotchi.age,
+        newAge: age,
+      },
     });
 
     conditionalLog(

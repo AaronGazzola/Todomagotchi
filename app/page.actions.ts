@@ -7,6 +7,8 @@ import { feedTamagotchiHelper } from "./(components)/Tamagotchi.actions";
 import { conditionalLog, LOG_LABELS } from "@/lib/log.util";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { createHistoryEntry, getActorContext } from "@/lib/history.utils";
+import { TODO_INTERACTIONS } from "./(components)/History.types";
 
 export const getTodosAction = async (): Promise<ActionResponse<Todo[]>> => {
   try {
@@ -86,7 +88,25 @@ export const createTodoAction = async (
       { label: LOG_LABELS.TODOS_ACTIONS }
     );
 
-    await feedTamagotchiHelper(db, activeOrganizationId);
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: TODO_INTERACTIONS.TODO_CREATED,
+      entityType: "todo",
+      entityId: todo.id,
+      actorContext,
+      metadata: { text: todo.text },
+    });
+
+    await feedTamagotchiHelper(db, activeOrganizationId, actorContext);
 
     return getActionResponse({ data: todo });
   } catch (error) {
@@ -149,8 +169,28 @@ export const toggleTodoAction = async (
       data: { completed: !todo.completed },
     });
 
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: isBeingCompleted
+        ? TODO_INTERACTIONS.TODO_COMPLETED
+        : TODO_INTERACTIONS.TODO_UNCOMPLETED,
+      entityType: "todo",
+      entityId: todo.id,
+      actorContext,
+      metadata: { text: todo.text },
+    });
+
     if (isBeingCompleted) {
-      await feedTamagotchiHelper(db, activeOrganizationId);
+      await feedTamagotchiHelper(db, activeOrganizationId, actorContext);
     }
 
     conditionalLog(
@@ -207,6 +247,24 @@ export const deleteTodoAction = async (
     if (todo.organizationId !== activeOrganizationId) {
       throw new Error("Todo does not belong to active organization");
     }
+
+    const actorContext = await getActorContext(
+      db,
+      session.user.id,
+      session.user.name,
+      session.user.email,
+      activeOrganizationId
+    );
+
+    await createHistoryEntry({
+      db,
+      organizationId: activeOrganizationId,
+      interactionType: TODO_INTERACTIONS.TODO_DELETED,
+      entityType: "todo",
+      entityId: todo.id,
+      actorContext,
+      metadata: { text: todo.text },
+    });
 
     await db.todo.delete({ where: { id } });
 

@@ -103,6 +103,7 @@ export const useFeedTamagotchi = () => {
         setTamagotchi(data);
       }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
 
       if (data?.age === 0 && data?.feedCount === 0) {
         showSuccessToast("Your Tamagotchi has evolved back to an egg!");
@@ -216,6 +217,7 @@ export const useUpdateTamagotchiSpecies = () => {
         setTamagotchi(data);
       }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
       showSuccessToast("Species updated!");
     },
     onError: (error: Error) => {
@@ -267,6 +269,7 @@ export const useUpdateTamagotchiAge = () => {
         setTamagotchi(data);
       }
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
+      queryClient.invalidateQueries({ queryKey: ["history"] });
       showSuccessToast("Age updated!");
     },
     onError: (error: Error) => {

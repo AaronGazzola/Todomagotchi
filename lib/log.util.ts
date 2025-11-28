@@ -22,6 +22,9 @@ export enum LOG_LABELS {
   TAMAGOTCHI_HOOKS = "tamagotchi-hooks",
   TAMAGOTCHI_ACTIONS = "tamagotchi-actions",
   MESSAGES = "messages",
+  HISTORY = "history",
+  HISTORY_HOOKS = "history-hooks",
+  HISTORY_ACTIONS = "history-actions",
 }
 
 interface ConditionalLogOptions {
