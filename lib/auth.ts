@@ -15,6 +15,22 @@ export const auth = betterAuth({
     requireEmailVerification: false,
   },
   databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const orgName = `${user.name}'s Tasks`;
+          const orgSlug = `${user.name.toLowerCase().replace(/\s+/g, "-")}-tasks-${user.id.slice(0, 8)}`;
+
+          await auth.api.createOrganization({
+            body: {
+              name: orgName,
+              slug: orgSlug,
+              userId: user.id,
+            },
+          });
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => {

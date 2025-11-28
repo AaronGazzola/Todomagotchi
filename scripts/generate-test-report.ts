@@ -15,7 +15,7 @@ interface CleanupStats {
 }
 
 function parseTestsFromDocsFile(): TestSuite[] {
-  const testsDocPath = path.join(process.cwd(), "docs", "Tests.md");
+  const testsDocPath = path.join(process.cwd(), "docs", "Testing", "Tests.md");
   const content = fs.readFileSync(testsDocPath, "utf-8");
 
   const testSuites: TestSuite[] = [];
@@ -28,13 +28,13 @@ function parseTestsFromDocsFile(): TestSuite[] {
   const lines = indexSection.split("\n");
 
   for (const line of lines) {
-    const matchSpec = line.match(/\[([^\]]+)\].*\]\(([^\)]+\.spec\.ts)\)/);
-    const matchTest = line.match(/\[([^\]]+)\].*\]\(([^\)]+\.test\.ts)\)/);
+    const matchSpec = line.match(/\[([^\]]+)\]\(([^\)]+\.spec\.ts)\)/);
+    const matchTest = line.match(/\[([^\]]+)\]\(([^\)]+\.test\.ts)\)/);
     const match = matchSpec || matchTest;
 
     if (match) {
       const name = match[1];
-      const fileName = match[2].replace("e2e/", "").replace("__tests__/", "");
+      const fileName = match[2].replace("e2e/", "").replace("__tests__/", "").replace("app/", "");
 
       const commandMatch = line.match(/`(npm run [^`]+)`/);
       const command = commandMatch ? commandMatch[1] : "";
@@ -54,17 +54,25 @@ function findLatestTestResultDir(fileName: string): string | null {
   }
 
   const pattern = fileName.replace(/\.(spec|test)\.ts$/, "");
+  const isUnitTest = fileName.endsWith(".test.ts");
   const timestampedDirPattern = /^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-\d{3}_/;
 
   const dirs = fs
     .readdirSync(testResultsDir)
     .filter((dir) => {
       const dirPath = path.join(testResultsDir, dir);
-      return (
-        fs.statSync(dirPath).isDirectory() &&
-        dir.includes(pattern) &&
-        timestampedDirPattern.test(dir)
-      );
+      if (!fs.statSync(dirPath).isDirectory() || !timestampedDirPattern.test(dir)) {
+        return false;
+      }
+      const readmePath = path.join(dirPath, "README.md");
+      if (!fs.existsSync(readmePath)) {
+        return false;
+      }
+      if (isUnitTest && dir.endsWith("_unit")) {
+        return true;
+      }
+      const content = fs.readFileSync(readmePath, "utf-8");
+      return content.includes(fileName) || dir.includes(pattern);
     })
     .sort()
     .reverse();
@@ -356,60 +364,80 @@ function generateConsolidatedReport(): void {
       status: "no-results",
     };
 
-    const latestDir = findLatestTestResultDir(suite.fileName);
+    const pattern = suite.fileName.replace(/\.(spec|test)\.ts$/, "");
+    const jsonResults = findJestTestResults(pattern);
 
-    if (latestDir) {
-      const readmeContent = extractReadmeContent(latestDir);
+    if (jsonResults) {
+      totalTests += jsonResults.stats.total;
+      totalPassed += jsonResults.stats.passed;
+      totalFailed += jsonResults.stats.failed;
+      totalSkipped += jsonResults.stats.skipped;
+      suitesWithResults++;
 
-      if (readmeContent) {
-        const summaryMatch = readmeContent.match(
-          /- \*\*Total:\*\* (\d+)\n- \*\*Passed:\*\* (\d+) ✅\n- \*\*Failed:\*\* (\d+) ❌\n- \*\*Skipped:\*\* (\d+) ⏭️/
-        );
+      const readmeContent = formatJestResultsAsReadme(jsonResults, suite);
 
-        if (summaryMatch) {
-          const total = parseInt(summaryMatch[1]);
-          const passed = parseInt(summaryMatch[2]);
-          const failed = parseInt(summaryMatch[3]);
-          const skipped = parseInt(summaryMatch[4]);
+      suiteStatus = {
+        suite,
+        status: jsonResults.stats.failed > 0 ? "failed" : "passed",
+        stats: jsonResults.stats,
+        readmeContent,
+      };
+    } else {
+      const latestDir = findLatestTestResultDir(suite.fileName);
 
-          totalTests += total;
-          totalPassed += passed;
-          totalFailed += failed;
-          totalSkipped += skipped;
-          suitesWithResults++;
+      if (latestDir) {
+        const readmeContent = extractReadmeContent(latestDir);
 
-          suiteStatus = {
-            suite,
-            status: failed > 0 ? "failed" : "passed",
-            stats: { total, passed, failed, skipped },
-            latestDir,
-            readmeContent,
-          };
+        if (readmeContent) {
+          const oldFormatMatch = readmeContent.match(
+            /- ✅ Passed: (\d+)\n- ❌ Failed: (\d+)\n- ⏭️\s+Skipped: (\d+)\n- 📊 Total: (\d+)/
+          );
+          const newFormatMatch = readmeContent.match(
+            /- \*\*Total:\*\* (\d+)\n- \*\*Passed:\*\* (\d+) ✅\n- \*\*Failed:\*\* (\d+) ❌\n- \*\*Skipped:\*\* (\d+) ⏭️/
+          );
+          const unitFormatMatch = readmeContent.match(
+            /- ✅ \*\*Passed:\*\* (\d+)\/(\d+)\n- ❌ \*\*Failed:\*\* (\d+)\/\d+\n- ⏭️ \*\*Skipped:\*\* (\d+)\/\d+/
+          );
+
+          let passed = 0, failed = 0, skipped = 0, total = 0;
+          const summaryMatch = oldFormatMatch || newFormatMatch || unitFormatMatch;
+          if (summaryMatch) {
+            if (oldFormatMatch) {
+              passed = parseInt(summaryMatch[1]);
+              failed = parseInt(summaryMatch[2]);
+              skipped = parseInt(summaryMatch[3]);
+              total = parseInt(summaryMatch[4]);
+            } else if (newFormatMatch) {
+              total = parseInt(summaryMatch[1]);
+              passed = parseInt(summaryMatch[2]);
+              failed = parseInt(summaryMatch[3]);
+              skipped = parseInt(summaryMatch[4]);
+            } else if (unitFormatMatch) {
+              passed = parseInt(summaryMatch[1]);
+              total = parseInt(summaryMatch[2]);
+              failed = parseInt(summaryMatch[3]);
+              skipped = parseInt(summaryMatch[4]);
+            }
+
+            totalTests += total;
+            totalPassed += passed;
+            totalFailed += failed;
+            totalSkipped += skipped;
+            suitesWithResults++;
+
+            suiteStatus = {
+              suite,
+              status: failed > 0 ? "failed" : "passed",
+              stats: { total, passed, failed, skipped },
+              latestDir,
+              readmeContent,
+            };
+          } else {
+            suitesWithoutResults++;
+          }
         } else {
           suitesWithoutResults++;
         }
-      } else {
-        suitesWithoutResults++;
-      }
-    } else {
-      const pattern = suite.fileName.replace(/\.(spec|test)\.ts$/, "");
-      const jestResults = findJestTestResults(pattern);
-
-      if (jestResults) {
-        totalTests += jestResults.stats.total;
-        totalPassed += jestResults.stats.passed;
-        totalFailed += jestResults.stats.failed;
-        totalSkipped += jestResults.stats.skipped;
-        suitesWithResults++;
-
-        const readmeContent = formatJestResultsAsReadme(jestResults, suite);
-
-        suiteStatus = {
-          suite,
-          status: jestResults.stats.failed > 0 ? "failed" : "passed",
-          stats: jestResults.stats,
-          readmeContent,
-        };
       } else {
         suitesWithoutResults++;
       }

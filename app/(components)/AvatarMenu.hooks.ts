@@ -39,9 +39,11 @@ export const useSetActiveOrganization = () => {
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
       queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["todoPermissions"] });
       showSuccessToast("Organization switched");
     },
     onError: (error: Error) => {
+      console.error("[useSetActiveOrganization] Error:", error.message, error);
       showErrorToast(error.message || "Failed to switch organization", "Switch Failed");
     },
   });
@@ -81,7 +83,7 @@ export const useCreateOrganization = () => {
 
         if (todos) {
           setTodos(todos);
-          queryClient.setQueryData(["todos"], todos);
+          queryClient.setQueryData(["todos", data.id], todos);
         }
 
         if (tamagotchi) {
@@ -96,6 +98,7 @@ export const useCreateOrganization = () => {
       showSuccessToast("Organization created successfully");
     },
     onError: (error: Error) => {
+      console.error("[useCreateOrganization] Error:", error.message, error);
       showErrorToast(error.message || "Failed to create organization", "Creation Failed");
     },
   });
@@ -140,6 +143,7 @@ export const useUpdateTamagotchiColor = () => {
       showSuccessToast("Tamagotchi color updated");
     },
     onError: (error: Error) => {
+      console.error("[useUpdateTamagotchiColor] Error:", error.message, error);
       showErrorToast(error.message || "Failed to update color", "Update Failed");
     },
   });
@@ -160,6 +164,7 @@ export const useResetOrganizationData = () => {
       showSuccessToast("Organization data reset successfully");
     },
     onError: (error: Error) => {
+      console.error("[useResetOrganizationData] Error:", error.message, error);
       showErrorToast(error.message || "Failed to reset data", "Reset Failed");
     },
   });
@@ -195,6 +200,7 @@ export const useSendInvitations = () => {
       }
     },
     onError: (error: Error) => {
+      console.error("[useSendInvitations] Error:", error.message, error);
       showErrorToast(error.message || "Failed to send invitations", "Invitation Failed");
     },
   });
@@ -230,6 +236,7 @@ export const useAcceptInvitation = () => {
       showSuccessToast("Invitation accepted successfully");
     },
     onError: (error: Error) => {
+      console.error("[useAcceptInvitation] Error:", error.message, error);
       showErrorToast(error.message || "Failed to accept invitation", "Accept Failed");
     },
   });
@@ -248,6 +255,7 @@ export const useDeclineInvitation = () => {
       showSuccessToast("Invitation declined");
     },
     onError: (error: Error) => {
+      console.error("[useDeclineInvitation] Error:", error.message, error);
       showErrorToast(error.message || "Failed to decline invitation", "Decline Failed");
     },
   });

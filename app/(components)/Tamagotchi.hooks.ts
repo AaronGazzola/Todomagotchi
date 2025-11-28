@@ -118,6 +118,7 @@ export const useFeedTamagotchi = () => {
       }
     },
     onError: (error: Error) => {
+      console.error("[useFeedTamagotchi] Error:", error.message, error);
       conditionalLog(
         { message: "useFeedTamagotchi - onError", error: error.message },
         { label: LOG_LABELS.TAMAGOTCHI_HOOKS }
@@ -218,6 +219,7 @@ export const useUpdateTamagotchiSpecies = () => {
       showSuccessToast("Species updated!");
     },
     onError: (error: Error) => {
+      console.error("[useUpdateTamagotchiSpecies] Error:", error.message, error);
       conditionalLog(
         {
           message: "useUpdateTamagotchiSpecies - onError",
@@ -268,6 +270,7 @@ export const useUpdateTamagotchiAge = () => {
       showSuccessToast("Age updated!");
     },
     onError: (error: Error) => {
+      console.error("[useUpdateTamagotchiAge] Error:", error.message, error);
       conditionalLog(
         { message: "useUpdateTamagotchiAge - onError", error: error.message },
         { label: LOG_LABELS.TAMAGOTCHI_HOOKS }

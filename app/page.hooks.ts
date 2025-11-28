@@ -19,12 +19,13 @@ import { organization } from "@/lib/auth-client";
 
 export const useGetTodos = () => {
   const { setTodos } = useTodoStore();
+  const activeOrganizationId = useActiveOrganizationId();
 
   const query = useQuery({
-    queryKey: ["todos"],
+    queryKey: ["todos", activeOrganizationId],
     queryFn: async () => {
       conditionalLog(
-        { message: "getTodosAction - start" },
+        { message: "getTodosAction - start", activeOrganizationId },
         { label: LOG_LABELS.TODOS }
       );
       const { data, error } = await getTodosAction();
@@ -42,6 +43,7 @@ export const useGetTodos = () => {
       return data || [];
     },
     refetchInterval: 5000,
+    enabled: !!activeOrganizationId,
   });
 
   useEffect(() => {
@@ -94,9 +96,9 @@ export const useCreateTodo = () => {
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       conditionalLog(
-        { message: "useCreateTodo - onSuccess" },
+        { message: "useCreateTodo - onSuccess", data },
         { label: LOG_LABELS.TODOS_HOOKS }
       );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
@@ -104,6 +106,7 @@ export const useCreateTodo = () => {
       showSuccessToast("Todo created");
     },
     onError: (error: Error) => {
+      console.error("[useCreateTodo] Error:", error.message, error);
       conditionalLog(
         { message: "useCreateTodo - onError", error: error.message },
         { label: LOG_LABELS.TODOS_HOOKS }
@@ -135,15 +138,16 @@ export const useToggleTodo = () => {
       if (error) throw new Error(error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       conditionalLog(
-        { message: "useToggleTodo - onSuccess" },
+        { message: "useToggleTodo - onSuccess", data },
         { label: LOG_LABELS.TODOS_HOOKS }
       );
       queryClient.invalidateQueries({ queryKey: ["todos"] });
       queryClient.invalidateQueries({ queryKey: ["tamagotchi"] });
     },
     onError: (error: Error) => {
+      console.error("[useToggleTodo] Error:", error.message, error);
       conditionalLog(
         { message: "useToggleTodo - onError", error: error.message },
         { label: LOG_LABELS.TODOS_HOOKS }
@@ -181,6 +185,7 @@ export const useDeleteTodo = () => {
       showSuccessToast("Todo deleted");
     },
     onError: (error: Error) => {
+      console.error("[useDeleteTodo] Error:", error.message, error);
       conditionalLog(
         { message: "useDeleteTodo - onError", error: error.message },
         { label: LOG_LABELS.TODOS_HOOKS }
@@ -271,6 +276,7 @@ export const useCreateMessage = () => {
       queryClient.invalidateQueries({ queryKey: ["messages"] });
     },
     onError: (error: Error) => {
+      console.error("[useCreateMessage] Error:", error.message, error);
       conditionalLog(
         { message: "useCreateMessage - onError", error: error.message },
         { label: LOG_LABELS.MESSAGES }
@@ -293,8 +299,8 @@ export const useTodoPermissions = () => {
         permissions: { todo: ["delete"] },
       });
       return {
-        canCreate: hasCreate,
-        canDelete: hasDelete,
+        canCreate: hasCreate?.data?.success ?? false,
+        canDelete: hasDelete?.data?.success ?? false,
       };
     },
     enabled: !!activeOrganizationId,

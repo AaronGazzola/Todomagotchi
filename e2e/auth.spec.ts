@@ -5,6 +5,7 @@ import {
   formatTestConditions,
   isVisibleByTestId,
   logTestResult,
+  DiagnosticData,
 } from "@/lib/test.utils";
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
@@ -225,7 +226,8 @@ test.describe("Authentication Flow", () => {
         "Page loads successfully",
         navigationSuccess,
         "page loaded",
-        "page failed to load"
+        "page failed to load",
+        diagnostics
       );
 
       if (!navigationSuccess) {
@@ -263,7 +265,8 @@ test.describe("Authentication Flow", () => {
         "Redirects to home page (/)",
         redirectedToHome,
         "redirected to /",
-        "redirect failed or timed out"
+        "redirect failed or timed out",
+        diagnostics
       );
 
       if (!redirectedToHome) {
@@ -291,7 +294,8 @@ test.describe("Authentication Flow", () => {
           "Avatar menu trigger is visible",
           visible,
           "avatar visible",
-          "avatar not found"
+          "avatar not found",
+          diagnostics
         );
 
         if (!visible) {
@@ -328,7 +332,8 @@ test.describe("Authentication Flow", () => {
         "Email address is displayed correctly",
         emailCorrect,
         `email: ${testEmail}`,
-        "email not displayed or incorrect"
+        "email not displayed or incorrect",
+        diagnostics
       );
 
       if (!emailCorrect) {
@@ -381,7 +386,8 @@ test.describe("Authentication Flow", () => {
         "User has organization membership",
         organizationCreated,
         "organization created",
-        "user or organization not found"
+        "user or organization not found",
+        diagnostics
       );
 
       await logTestResult(
@@ -395,7 +401,8 @@ test.describe("Authentication Flow", () => {
         "Tamagotchi exists for organization",
         tamagotchiCreated,
         "tamagotchi created",
-        "tamagotchi not found"
+        "tamagotchi not found",
+        diagnostics
       );
 
       await logTestResult(
@@ -409,7 +416,8 @@ test.describe("Authentication Flow", () => {
         "Todo list is empty (0 todos)",
         todoListInitialized,
         "todo list is empty",
-        "todo list has unexpected items"
+        "todo list has unexpected items",
+        diagnostics
       );
 
       if (!organizationCreated) {
@@ -449,7 +457,8 @@ test.describe("Authentication Flow", () => {
         "Redirects to sign in page (/sign-in)",
         redirectedToSignIn,
         "redirected to /sign-in",
-        "redirect failed or timed out"
+        "redirect failed or timed out",
+        diagnostics
       );
 
       if (!redirectedToSignIn) {
@@ -486,7 +495,8 @@ test.describe("Authentication Flow", () => {
         "Redirects to home page (/)",
         redirectedBackToHome,
         "redirected to /",
-        "redirect failed or timed out"
+        "redirect failed or timed out",
+        diagnostics
       );
 
       if (!redirectedBackToHome) {
@@ -514,7 +524,8 @@ test.describe("Authentication Flow", () => {
           "Avatar menu trigger is visible",
           avatarVisibleAfterSignIn,
           "avatar visible",
-          "avatar not found"
+          "avatar not found",
+          diagnostics
         );
 
         if (!avatarVisibleAfterSignIn) {

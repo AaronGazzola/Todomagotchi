@@ -6,6 +6,7 @@ import {
   isVisibleByTestId,
   logTestResult,
   countByTestId,
+  DiagnosticData,
 } from "@/lib/test.utils";
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
@@ -193,8 +194,10 @@ test.describe("Todo Permission Tests", () => {
   test("should allow owner to create and delete todos, member can only toggle", async ({
     page,
     context,
+    diagnostics,
   }) => {
     const stepLogger = new TestStepLogger("Todo Permission Flow");
+    let memberDiagnostics: DiagnosticData | null = null;
 
     logger.registerExpectedTest(
       "Owner Signup - Successful",
@@ -284,7 +287,8 @@ test.describe("Todo Permission Tests", () => {
         "Owner user can sign up successfully",
         signupSuccess,
         `owner signed up with role: ${signupSuccess ? "owner" : "not owner"}`,
-        "owner signup failed"
+        "owner signup failed",
+        diagnostics
       );
 
       if (!signupSuccess) {
@@ -295,12 +299,12 @@ test.describe("Todo Permission Tests", () => {
     await stepLogger.step("Owner: Create todo", async () => {
       await fillByTestId(page, TestId.TODO_INPUT, "Test todo for permissions");
       await clickByTestId(page, TestId.TODO_ADD_BUTTON);
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
     });
 
     let todoCreated = false;
     await stepLogger.step("Owner: Verify todo created", async () => {
-      const isVisible = await isVisibleByTestId(page, TestId.TODO_ITEM, 10000);
+      const isVisible = await isVisibleByTestId(page, TestId.TODO_ITEM, 30000);
 
       if (isVisible && ownerOrganizationId) {
         const todos = await prisma.todo.findMany({
@@ -321,7 +325,8 @@ test.describe("Todo Permission Tests", () => {
         "Owner can create todo",
         todoCreated,
         "todo created successfully",
-        "todo creation failed"
+        "todo creation failed",
+        diagnostics
       );
 
       if (!todoCreated) {
@@ -337,11 +342,16 @@ test.describe("Todo Permission Tests", () => {
         `${TestId.TODO_DELETE_BUTTON}-${createdTodoId}`
       );
       await deleteButton.click();
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
     });
 
     let todoDeleted = false;
     await stepLogger.step("Owner: Verify todo deleted", async () => {
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-testid="todo-item"]').length === 0,
+        { timeout: 10000 }
+      ).catch(() => {});
+
       const count = await countByTestId(page, TestId.TODO_ITEM);
 
       if (count === 0 && ownerOrganizationId) {
@@ -360,7 +370,8 @@ test.describe("Todo Permission Tests", () => {
         "Owner can delete todo",
         todoDeleted,
         "todo deleted successfully",
-        "todo deletion failed"
+        "todo deletion failed",
+        diagnostics
       );
 
       if (!todoDeleted) {
@@ -374,7 +385,11 @@ test.describe("Todo Permission Tests", () => {
       await page.waitForTimeout(500);
       await fillByTestId(page, TestId.INVITE_EMAIL_INPUT, memberEmail);
       await clickByTestId(page, TestId.INVITE_SEND_BUTTON);
-      await page.waitForTimeout(2000);
+      await page.waitForSelector('[data-testid="toast-success"]', {
+        state: "visible",
+        timeout: 30000,
+      });
+      await page.waitForTimeout(1000);
     });
 
     let invitationSent = false;
@@ -398,7 +413,8 @@ test.describe("Todo Permission Tests", () => {
         "Owner can send invitation to member",
         invitationSent,
         "invitation sent successfully",
-        "invitation send failed"
+        "invitation send failed",
+        diagnostics
       );
 
       if (!invitationSent) {
@@ -413,6 +429,56 @@ test.describe("Todo Permission Tests", () => {
     });
 
     const memberPage = await context.newPage();
+
+    memberDiagnostics = {
+      consoleLogs: [],
+      pageErrors: [],
+      networkFailures: [],
+    };
+
+    memberPage.on("console", (msg) => {
+      memberDiagnostics!.consoleLogs.push({
+        type: msg.type(),
+        text: msg.text(),
+        timestamp: Date.now(),
+        location: msg.location()
+          ? `${msg.location().url}:${msg.location().lineNumber}`
+          : undefined,
+      });
+    });
+
+    memberPage.on("pageerror", (error) => {
+      memberDiagnostics!.pageErrors.push({
+        message: error.message,
+        stack: error.stack,
+        timestamp: Date.now(),
+      });
+    });
+
+    memberPage.on("response", async (response) => {
+      if (!response.ok() && response.status() >= 400) {
+        let responseBody: string | undefined;
+        try {
+          const contentType = response.headers()["content-type"] || "";
+          if (contentType.includes("application/json")) {
+            responseBody = JSON.stringify(await response.json(), null, 2);
+          } else if (contentType.includes("text/")) {
+            responseBody = await response.text();
+          }
+        } catch {
+          responseBody = undefined;
+        }
+
+        memberDiagnostics!.networkFailures.push({
+          url: response.url(),
+          method: response.request().method(),
+          status: response.status(),
+          statusText: response.statusText(),
+          responseBody,
+          timestamp: Date.now(),
+        });
+      }
+    });
 
     await stepLogger.step("Member: Sign up", async () => {
       await memberPage.goto("/sign-up");
@@ -439,7 +505,8 @@ test.describe("Todo Permission Tests", () => {
         "Member user can sign up successfully",
         memberSignupSuccess,
         "member signed up successfully",
-        "member signup failed"
+        "member signup failed",
+        memberDiagnostics || undefined
       );
 
       if (!memberSignupSuccess) {
@@ -451,11 +518,15 @@ test.describe("Todo Permission Tests", () => {
       const invitationVisible = await isVisibleByTestId(
         memberPage,
         TestId.INVITATION_ACCEPT_BUTTON,
-        10000
+        30000
       );
 
       if (invitationVisible) {
         await clickByTestId(memberPage, TestId.INVITATION_ACCEPT_BUTTON);
+        await memberPage.waitForSelector('[data-testid="toast-success"]', {
+          state: "visible",
+          timeout: 30000,
+        });
         await memberPage.waitForTimeout(2000);
       }
     });
@@ -489,7 +560,8 @@ test.describe("Todo Permission Tests", () => {
         "Member can accept invitation",
         invitationAccepted,
         `invitation accepted with role: ${invitationAccepted ? "member" : "not member"}`,
-        "invitation accept failed"
+        "invitation accept failed",
+        memberDiagnostics || undefined
       );
 
       if (!invitationAccepted) {
@@ -504,12 +576,26 @@ test.describe("Todo Permission Tests", () => {
       await memberPage.waitForTimeout(2000);
     });
 
-    await stepLogger.step("Owner: Create todo for member to test", async () => {
+    await stepLogger.step("Owner: Sign back in", async () => {
       await page.goto("/");
       await page.waitForTimeout(1000);
+      const currentUrl = page.url();
+      if (currentUrl.includes("sign-in")) {
+        await fillByTestId(page, TestId.SIGN_IN_EMAIL, ownerEmail);
+        await fillByTestId(page, TestId.SIGN_IN_PASSWORD, testPassword);
+        await clickByTestId(page, TestId.SIGN_IN_SUBMIT);
+        await page.waitForURL("/", { timeout: 60000 });
+      }
+    });
+
+    await stepLogger.step("Owner: Create todo for member to test", async () => {
+      await page.waitForTimeout(2000);
       await fillByTestId(page, TestId.TODO_INPUT, "Todo for member test");
       await clickByTestId(page, TestId.TODO_ADD_BUTTON);
-      await page.waitForTimeout(2000);
+      await page.waitForSelector('[data-testid="todo-item"]', {
+        state: "visible",
+        timeout: 30000,
+      });
     });
 
     let ownerCreatedTestTodo = false;
@@ -532,7 +618,11 @@ test.describe("Todo Permission Tests", () => {
 
     await stepLogger.step("Member: Refresh to see todo", async () => {
       await memberPage.reload();
-      await memberPage.waitForTimeout(3000);
+      await memberPage.waitForSelector('[data-testid="todo-item"]', {
+        state: "visible",
+        timeout: 30000,
+      });
+      await memberPage.waitForTimeout(5000);
     });
 
     let createInputHidden = false;
@@ -540,12 +630,12 @@ test.describe("Todo Permission Tests", () => {
       const inputVisible = await isVisibleByTestId(
         memberPage,
         TestId.TODO_INPUT,
-        2000
+        5000
       );
       const buttonVisible = await isVisibleByTestId(
         memberPage,
         TestId.TODO_ADD_BUTTON,
-        2000
+        5000
       );
 
       createInputHidden = !inputVisible && !buttonVisible;
@@ -558,7 +648,8 @@ test.describe("Todo Permission Tests", () => {
         "Member cannot see create todo input/button",
         createInputHidden,
         "create input and button are hidden",
-        "create input or button is visible"
+        "create input or button is visible",
+        memberDiagnostics || undefined
       );
 
       if (!createInputHidden) {
@@ -588,7 +679,8 @@ test.describe("Todo Permission Tests", () => {
         "Member cannot see delete button on todos",
         deleteButtonHidden,
         "delete button is hidden",
-        "delete button is visible"
+        "delete button is visible",
+        memberDiagnostics || undefined
       );
 
       if (!deleteButtonHidden) {
@@ -622,7 +714,8 @@ test.describe("Todo Permission Tests", () => {
         "Member can toggle todo completion",
         todoToggled,
         "todo toggled successfully",
-        "todo toggle failed"
+        "todo toggle failed",
+        memberDiagnostics || undefined
       );
 
       if (!todoToggled) {

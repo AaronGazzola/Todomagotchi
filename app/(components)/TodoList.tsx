@@ -26,7 +26,7 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
   const activeOrganizationId = useActiveOrganizationId();
 
   const todos = useTodoStore((state) => state.todos) || [];
-  const { data: permissions } = useTodoPermissions();
+  const { data: permissions, isLoading: permissionsLoading } = useTodoPermissions();
   const canCreate = permissions?.canCreate ?? false;
   const canDelete = permissions?.canDelete ?? false;
 
@@ -76,7 +76,7 @@ export function TodoList({ onTodoAction, isLoading = false }: TodoListProps = {}
     }
   };
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return (
       <div
         className="space-y-6"

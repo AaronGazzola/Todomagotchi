@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TestId } from "@/test.types";
 import { useSignUp } from "./page.hooks";
-import { useCreateOrganization } from "@/app/(components)/AvatarMenu.hooks";
 import { configuration } from "@/configuration";
 import { Eye, EyeOff, Info } from "lucide-react";
 
@@ -19,9 +18,8 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const { mutate: signUpUser, isPending: isSigningUp } = useSignUp();
-  const { mutate: createOrganization, isPending: isCreatingOrg } = useCreateOrganization();
 
-  const isLoading = isSigningUp || isCreatingOrg;
+  const isLoading = isSigningUp;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,15 +27,7 @@ export default function SignUpPage() {
       { name, email, password },
       {
         onSuccess: () => {
-          const slug = name.toLowerCase().replace(/\s+/g, "-") + "-tasks";
-          createOrganization(
-            { name: `${name}'s Tasks`, slug },
-            {
-              onSuccess: () => {
-                router.push(configuration.paths.home);
-              },
-            }
-          );
+          router.push(configuration.paths.home);
         },
       }
     );

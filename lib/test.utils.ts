@@ -3,6 +3,28 @@ import { TestId } from "@/test.types";
 import * as fs from "fs";
 import * as path from "path";
 
+export interface DiagnosticData {
+  consoleLogs: Array<{
+    type: string;
+    text: string;
+    timestamp: number;
+    location?: string;
+  }>;
+  pageErrors: Array<{
+    message: string;
+    stack?: string;
+    timestamp: number;
+  }>;
+  networkFailures: Array<{
+    url: string;
+    method: string;
+    status: number;
+    statusText: string;
+    responseBody?: string;
+    timestamp: number;
+  }>;
+}
+
 export class TestResultLogger {
   private logs: Array<{
     testNumber: number;
@@ -14,6 +36,9 @@ export class TestResultLogger {
     observed?: string;
     screenshotPath?: string;
     errorToast?: string;
+    consoleErrors?: Array<{ type: string; text: string; location?: string }>;
+    pageErrors?: Array<{ message: string; stack?: string }>;
+    networkFailures?: Array<{ url: string; method: string; status: number; statusText: string; responseBody?: string }>;
   }> = [];
 
   private expectedTests: Map<
@@ -41,13 +66,34 @@ export class TestResultLogger {
     observed: string,
     passed: boolean,
     screenshotPath?: string,
-    errorToast?: string
+    errorToast?: string,
+    diagnostics?: DiagnosticData
   ): void {
     this.testCounter++;
 
     if (!passed && this.firstFailureIndex === null) {
       this.firstFailureIndex = this.testCounter;
     }
+
+    const consoleErrors = !passed && diagnostics
+      ? diagnostics.consoleLogs
+          .filter((log) => log.type === "error" || log.type === "warning")
+          .map(({ type, text, location }) => ({ type, text, location }))
+      : undefined;
+
+    const pageErrors = !passed && diagnostics
+      ? diagnostics.pageErrors.map(({ message, stack }) => ({ message, stack }))
+      : undefined;
+
+    const networkFailures = !passed && diagnostics
+      ? diagnostics.networkFailures.map(({ url, method, status, statusText, responseBody }) => ({
+          url,
+          method,
+          status,
+          statusText,
+          responseBody,
+        }))
+      : undefined;
 
     this.logs.push({
       testNumber: this.testCounter,
@@ -59,6 +105,9 @@ export class TestResultLogger {
       observed: passed ? undefined : observed,
       screenshotPath: passed ? undefined : screenshotPath,
       errorToast: passed ? undefined : errorToast,
+      consoleErrors: consoleErrors?.length ? consoleErrors : undefined,
+      pageErrors: pageErrors?.length ? pageErrors : undefined,
+      networkFailures: networkFailures?.length ? networkFailures : undefined,
     });
 
     this.expectedTests.delete(testName);
@@ -104,6 +153,18 @@ export class TestResultLogger {
       return "";
     }
 
+    const consoleErrorsStr = firstFailure.consoleErrors?.length
+      ? `  Console Errors:\n${firstFailure.consoleErrors.map((e) => `    - [${e.type}] ${e.text}${e.location ? ` (${e.location})` : ""}`).join("\n")}`
+      : "";
+
+    const pageErrorsStr = firstFailure.pageErrors?.length
+      ? `  Page Errors:\n${firstFailure.pageErrors.map((e) => `    - ${e.message}`).join("\n")}`
+      : "";
+
+    const networkFailuresStr = firstFailure.networkFailures?.length
+      ? `  Network Failures:\n${firstFailure.networkFailures.map((e) => `    - ${e.method} ${e.url} -> ${e.status} ${e.statusText}${e.responseBody ? `\n      Response: ${e.responseBody.substring(0, 200)}` : ""}`).join("\n")}`
+      : "";
+
     return `
 Test Suite: ${this.testSuiteName}
 Total: ${stats.total} | Passed: ${stats.passed} | Failed: ${stats.failed}
@@ -115,6 +176,9 @@ First Failed Test:
   Observed: ${firstFailure.observed || "N/A"}
 ${firstFailure.screenshotPath ? `  Screenshot: ${firstFailure.screenshotPath}` : ""}
 ${firstFailure.errorToast ? `  Error Toast: ${firstFailure.errorToast}` : ""}
+${consoleErrorsStr}
+${pageErrorsStr}
+${networkFailuresStr}
 `.trim();
   }
 
@@ -205,7 +269,8 @@ export async function logTestResult(
   expectation: string,
   passed: boolean,
   observedSuccess: string,
-  observedFailure: string
+  observedFailure: string,
+  diagnostics?: DiagnosticData
 ): Promise<void> {
   const observed = passed ? observedSuccess : observedFailure;
   const screenshotPath = !passed
@@ -220,7 +285,8 @@ export async function logTestResult(
     observed,
     passed,
     screenshotPath,
-    errorToast
+    errorToast,
+    diagnostics
   );
 }
 
